@@ -171,8 +171,8 @@ export async function seedDatabase(): Promise<void> {
         ],
         correctSequence: ['move-1', 'move-2', 'turn-r', 'move-3', 'move-4', 'move-5'],
         gridSize: { rows: 4, cols: 5 },
-        startPosition: { row: 2, col: 0 },
-        endPosition: { row: 0, col: 4 },
+        startPosition: { row: 0, col: 0 },
+        endPosition: { row: 3, col: 2 },
         characterEmoji: '🤖',
         goalEmoji: '⭐'
       })

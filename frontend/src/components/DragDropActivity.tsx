@@ -84,8 +84,23 @@ export default function DragDropActivity({ activity, onComplete }: DragDropActiv
   };
 
   const checkAnswer = () => {
-    const userSequence = dropZone.map(b => b.id);
-    const isCorrect = JSON.stringify(userSequence) === JSON.stringify(activity.correctSequence);
+    // Compare block properties (excluding id) instead of strict IDs
+    // This allows identical blocks (like multiple "Move Forward" blocks) to be used interchangeably
+    const userBlocks = dropZone.map(b => {
+      const { id, ...rest } = b as any;
+      return rest;
+    });
+    
+    const correctBlocks = activity.correctSequence.map(id => {
+      const block = activity.availableBlocks.find(b => b.id === id);
+      if (block) {
+        const { id: _, ...rest } = block as any;
+        return rest;
+      }
+      return { type: id }; // Fallback
+    });
+
+    const isCorrect = JSON.stringify(userBlocks) === JSON.stringify(correctBlocks);
 
     if (isCorrect) {
       setResult('success');
