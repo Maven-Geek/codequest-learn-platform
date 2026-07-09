@@ -83,15 +83,6 @@ export default function LoginPage() {
           Don't have an account? <Link to="/register">Sign up here! 🌟</Link>
         </p>
 
-        <div className="mt-xl" style={{ borderTop: '1px solid var(--color-border-light)', paddingTop: 'var(--space-lg)' }}>
-          <p className="text-center text-muted mb-md" style={{ fontSize: '0.85rem' }}>Demo Accounts:</p>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-sm)', fontSize: '0.8rem' }}>
-            <button className="btn btn-ghost btn-sm" onClick={() => { setUsername('coder_kid'); setPassword('learn123'); }}>👦 Learner</button>
-            <button className="btn btn-ghost btn-sm" onClick={() => { setUsername('parent1'); setPassword('parent123'); }}>👨‍👩‍👧 Parent</button>
-            <button className="btn btn-ghost btn-sm" onClick={() => { setUsername('teacher1'); setPassword('teach123'); }}>👩‍🏫 Teacher</button>
-            <button className="btn btn-ghost btn-sm" onClick={() => { setUsername('admin'); setPassword('admin123'); }}>👑 Admin</button>
-          </div>
-        </div>
       </div>
     </div>
   );
