@@ -3,29 +3,30 @@
 // ============================================================
 
 import { Router, Request, Response } from 'express';
-import { getDb } from '../database';
+import { query } from '../database';
 import { authMiddleware, requireRole } from '../middleware/auth';
 
 const router = Router();
 
 // GET /api/lessons/:id/quiz — Get quiz for a lesson
-router.get('/lessons/:id/quiz', authMiddleware, (req: Request, res: Response) => {
+router.get('/lessons/:id/quiz', authMiddleware, async (req: Request, res: Response) => {
   try {
-    const db = getDb();
     const lessonId = req.params.id;
 
-    const quiz = db.prepare('SELECT * FROM quizzes WHERE lesson_id = ?').get(lessonId) as any;
+    const quizResult = await query('SELECT * FROM quizzes WHERE lesson_id = $1', [lessonId]);
+    const quiz = quizResult.rows[0] as any;
     if (!quiz) {
       res.status(404).json({ success: false, error: 'No quiz found for this lesson' });
       return;
     }
 
-    const questions = db.prepare(
-      'SELECT * FROM quiz_questions WHERE quiz_id = ? ORDER BY order_index'
-    ).all(quiz.id) as any[];
+    const questionsResult = await query(
+      'SELECT * FROM quiz_questions WHERE quiz_id = $1 ORDER BY order_index',
+      [quiz.id]
+    );
 
     // Parse options JSON
-    const parsedQuestions = questions.map(q => ({
+    const parsedQuestions = questionsResult.rows.map((q: any) => ({
       ...q,
       options: JSON.parse(q.options || '[]')
     }));
@@ -44,9 +45,8 @@ router.get('/lessons/:id/quiz', authMiddleware, (req: Request, res: Response) =>
 });
 
 // POST /api/quizzes/:id/submit — Submit quiz answers
-router.post('/quizzes/:id/submit', authMiddleware, (req: Request, res: Response) => {
+router.post('/quizzes/:id/submit', authMiddleware, async (req: Request, res: Response) => {
   try {
-    const db = getDb();
     const quizId = req.params.id;
     const userId = req.user!.userId;
     const { answers } = req.body as { answers: { question_id: number; selected_index: number }[] };
@@ -56,15 +56,18 @@ router.post('/quizzes/:id/submit', authMiddleware, (req: Request, res: Response)
       return;
     }
 
-    const quiz = db.prepare('SELECT * FROM quizzes WHERE id = ?').get(quizId) as any;
+    const quizResult = await query('SELECT * FROM quizzes WHERE id = $1', [quizId]);
+    const quiz = quizResult.rows[0] as any;
     if (!quiz) {
       res.status(404).json({ success: false, error: 'Quiz not found' });
       return;
     }
 
-    const questions = db.prepare(
-      'SELECT * FROM quiz_questions WHERE quiz_id = ? ORDER BY order_index'
-    ).all(quiz.id) as any[];
+    const questionsResult = await query(
+      'SELECT * FROM quiz_questions WHERE quiz_id = $1 ORDER BY order_index',
+      [quiz.id]
+    );
+    const questions = questionsResult.rows as any[];
 
     // Score the quiz
     let correctCount = 0;
@@ -84,29 +87,30 @@ router.post('/quizzes/:id/submit', authMiddleware, (req: Request, res: Response)
     const pointsEarned = passed ? 10 + Math.floor(score / 10) : 2; // Base points + bonus for high scores
 
     // Update or create progress
-    const existingProgress = db.prepare(
-      'SELECT id FROM user_progress WHERE user_id = ? AND lesson_id = ?'
-    ).get(userId, quiz.lesson_id) as any;
+    const existingProgress = await query(
+      'SELECT id FROM user_progress WHERE user_id = $1 AND lesson_id = $2',
+      [userId, quiz.lesson_id]
+    );
 
-    if (existingProgress) {
-      db.prepare(`
+    if (existingProgress.rows.length > 0) {
+      await query(`
         UPDATE user_progress SET
-          quiz_score = ?,
-          quiz_passed = ?,
-          completed = CASE WHEN ? = 1 THEN 1 ELSE completed END,
-          points_earned = CASE WHEN ? > points_earned THEN ? ELSE points_earned END,
-          completed_at = CASE WHEN ? = 1 THEN CURRENT_TIMESTAMP ELSE completed_at END
-        WHERE id = ?
-      `).run(score, passed ? 1 : 0, passed ? 1 : 0, pointsEarned, pointsEarned, passed ? 1 : 0, existingProgress.id);
+          quiz_score = $1,
+          quiz_passed = $2,
+          completed = CASE WHEN $2 = true THEN true ELSE completed END,
+          points_earned = CASE WHEN $3 > points_earned THEN $3 ELSE points_earned END,
+          completed_at = CASE WHEN $2 = true THEN NOW() ELSE completed_at END
+        WHERE id = $4
+      `, [score, passed, pointsEarned, existingProgress.rows[0].id]);
     } else {
-      db.prepare(`
+      await query(`
         INSERT INTO user_progress (user_id, lesson_id, completed, quiz_score, quiz_passed, points_earned, completed_at)
-        VALUES (?, ?, ?, ?, ?, ?, CASE WHEN ? = 1 THEN CURRENT_TIMESTAMP ELSE NULL END)
-      `).run(userId, quiz.lesson_id, passed ? 1 : 0, score, passed ? 1 : 0, pointsEarned, passed ? 1 : 0);
+        VALUES ($1, $2, $3, $4, $5, $6, CASE WHEN $3 = true THEN NOW() ELSE NULL END)
+      `, [userId, quiz.lesson_id, passed, score, passed, pointsEarned]);
     }
 
     // Check and award badges
-    const badgesEarned = checkAndAwardBadges(db, userId, quiz.lesson_id, score);
+    const badgesEarned = await checkAndAwardBadges(userId, quiz.lesson_id, score);
 
     res.json({
       success: true,
@@ -126,9 +130,8 @@ router.post('/quizzes/:id/submit', authMiddleware, (req: Request, res: Response)
 });
 
 // POST /api/quizzes — Admin: create quiz for a lesson
-router.post('/quizzes', authMiddleware, requireRole('admin'), (req: Request, res: Response) => {
+router.post('/quizzes', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
   try {
-    const db = getDb();
     const { lesson_id, passing_score, questions } = req.body;
 
     if (!lesson_id) {
@@ -137,26 +140,28 @@ router.post('/quizzes', authMiddleware, requireRole('admin'), (req: Request, res
     }
 
     // Check if quiz already exists for this lesson
-    const existing = db.prepare('SELECT id FROM quizzes WHERE lesson_id = ?').get(lesson_id);
-    if (existing) {
+    const existing = await query('SELECT id FROM quizzes WHERE lesson_id = $1', [lesson_id]);
+    if (existing.rows.length > 0) {
       res.status(409).json({ success: false, error: 'Quiz already exists for this lesson' });
       return;
     }
 
-    const result = db.prepare(
-      'INSERT INTO quizzes (lesson_id, passing_score) VALUES (?, ?)'
-    ).run(lesson_id, passing_score || 70);
+    const result = await query(
+      'INSERT INTO quizzes (lesson_id, passing_score) VALUES ($1, $2) RETURNING id',
+      [lesson_id, passing_score || 70]
+    );
 
-    const quizId = result.lastInsertRowid;
+    const quizId = result.rows[0].id;
 
     // Insert questions if provided
     if (questions && Array.isArray(questions)) {
-      const insertQ = db.prepare(
-        'INSERT INTO quiz_questions (quiz_id, question_text, options, order_index) VALUES (?, ?, ?, ?)'
-      );
-      questions.forEach((q: any, index: number) => {
-        insertQ.run(quizId, q.question_text, JSON.stringify(q.options), index + 1);
-      });
+      for (let i = 0; i < questions.length; i++) {
+        const q = questions[i];
+        await query(
+          'INSERT INTO quiz_questions (quiz_id, question_text, options, order_index) VALUES ($1, $2, $3, $4)',
+          [quizId, q.question_text, JSON.stringify(q.options), i + 1]
+        );
+      }
     }
 
     res.status(201).json({ success: true, data: { id: quizId } });
@@ -166,50 +171,52 @@ router.post('/quizzes', authMiddleware, requireRole('admin'), (req: Request, res
   }
 });
 
-function checkAndAwardBadges(db: any, userId: number, lessonId: number, quizScore: number): any[] {
+async function checkAndAwardBadges(userId: number, lessonId: number, quizScore: number): Promise<any[]> {
   const badges: any[] = [];
-  const awardBadge = (badgeId: number) => {
+  const awardBadge = async (badgeId: number) => {
     try {
-      db.prepare('INSERT OR IGNORE INTO user_badges (user_id, badge_id) VALUES (?, ?)').run(userId, badgeId);
+      await query('INSERT INTO user_badges (user_id, badge_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [userId, badgeId]);
       return true;
     } catch { return false; }
   };
 
   // First Steps: complete first lesson
-  const completedCount = db.prepare(
-    'SELECT COUNT(*) as count FROM user_progress WHERE user_id = ? AND completed = 1'
-  ).get(userId) as any;
-  if (completedCount.count >= 1) {
-    const badge = db.prepare("SELECT * FROM badges WHERE criteria = 'complete_first_lesson'").get() as any;
-    if (badge && awardBadge(badge.id)) badges.push(badge);
+  const completedCount = await query(
+    'SELECT COUNT(*) as count FROM user_progress WHERE user_id = $1 AND completed = true',
+    [userId]
+  );
+  if (parseInt(completedCount.rows[0].count) >= 1) {
+    const badge = await query("SELECT * FROM badges WHERE criteria = 'complete_first_lesson'");
+    if (badge.rows[0] && await awardBadge(badge.rows[0].id)) badges.push(badge.rows[0]);
   }
 
   // Perfect Quiz
   if (quizScore === 100) {
-    const badge = db.prepare("SELECT * FROM badges WHERE criteria = 'perfect_quiz'").get() as any;
-    if (badge && awardBadge(badge.id)) badges.push(badge);
+    const badge = await query("SELECT * FROM badges WHERE criteria = 'perfect_quiz'");
+    if (badge.rows[0] && await awardBadge(badge.rows[0].id)) badges.push(badge.rows[0]);
   }
 
   // Streak of 3
-  if (completedCount.count >= 3) {
-    const badge = db.prepare("SELECT * FROM badges WHERE criteria = 'streak_3'").get() as any;
-    if (badge && awardBadge(badge.id)) badges.push(badge);
+  if (parseInt(completedCount.rows[0].count) >= 3) {
+    const badge = await query("SELECT * FROM badges WHERE criteria = 'streak_3'");
+    if (badge.rows[0] && await awardBadge(badge.rows[0].id)) badges.push(badge.rows[0]);
   }
 
   // Level completion badges
-  const checkLevel = (levelId: number, criteria: string) => {
-    const levelLessons = db.prepare('SELECT COUNT(*) as count FROM lessons WHERE level_id = ? AND is_published = 1').get(levelId) as any;
-    const levelCompleted = db.prepare(
-      'SELECT COUNT(*) as count FROM user_progress up JOIN lessons l ON up.lesson_id = l.id WHERE l.level_id = ? AND up.user_id = ? AND up.completed = 1'
-    ).get(levelId, userId) as any;
-    if (levelCompleted.count >= levelLessons.count && levelLessons.count > 0) {
-      const badge = db.prepare("SELECT * FROM badges WHERE criteria = ?").get(criteria) as any;
-      if (badge && awardBadge(badge.id)) badges.push(badge);
+  const checkLevel = async (levelId: number, criteria: string) => {
+    const levelLessons = await query('SELECT COUNT(*) as count FROM lessons WHERE level_id = $1 AND is_published = true', [levelId]);
+    const levelCompleted = await query(
+      'SELECT COUNT(*) as count FROM user_progress up JOIN lessons l ON up.lesson_id = l.id WHERE l.level_id = $1 AND up.user_id = $2 AND up.completed = true',
+      [levelId, userId]
+    );
+    if (parseInt(levelCompleted.rows[0].count) >= parseInt(levelLessons.rows[0].count) && parseInt(levelLessons.rows[0].count) > 0) {
+      const badge = await query("SELECT * FROM badges WHERE criteria = $1", [criteria]);
+      if (badge.rows[0] && await awardBadge(badge.rows[0].id)) badges.push(badge.rows[0]);
     }
   };
-  checkLevel(1, 'complete_level_1');
-  checkLevel(2, 'complete_level_2');
-  checkLevel(3, 'complete_level_3');
+  await checkLevel(1, 'complete_level_1');
+  await checkLevel(2, 'complete_level_2');
+  await checkLevel(3, 'complete_level_3');
 
   // Lesson-specific badges
   const lessonBadges: Record<number, string> = {
@@ -218,15 +225,15 @@ function checkAndAwardBadges(db: any, userId: number, lessonId: number, quizScor
     9: 'complete_lesson_9'
   };
   if (lessonBadges[lessonId]) {
-    const badge = db.prepare("SELECT * FROM badges WHERE criteria = ?").get(lessonBadges[lessonId]) as any;
-    if (badge && awardBadge(badge.id)) badges.push(badge);
+    const badge = await query("SELECT * FROM badges WHERE criteria = $1", [lessonBadges[lessonId]]);
+    if (badge.rows[0] && await awardBadge(badge.rows[0].id)) badges.push(badge.rows[0]);
   }
 
   // All lessons complete
-  const totalLessons = db.prepare('SELECT COUNT(*) as count FROM lessons WHERE is_published = 1').get() as any;
-  if (completedCount.count >= totalLessons.count && totalLessons.count > 0) {
-    const badge = db.prepare("SELECT * FROM badges WHERE criteria = 'complete_all'").get() as any;
-    if (badge && awardBadge(badge.id)) badges.push(badge);
+  const totalLessons = await query('SELECT COUNT(*) as count FROM lessons WHERE is_published = true');
+  if (parseInt(completedCount.rows[0].count) >= parseInt(totalLessons.rows[0].count) && parseInt(totalLessons.rows[0].count) > 0) {
+    const badge = await query("SELECT * FROM badges WHERE criteria = 'complete_all'");
+    if (badge.rows[0] && await awardBadge(badge.rows[0].id)) badges.push(badge.rows[0]);
   }
 
   return badges;

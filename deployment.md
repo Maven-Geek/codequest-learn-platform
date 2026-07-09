@@ -1,30 +1,171 @@
-# Free Platforms for Live Deployment
+# CodeQuest — Deployment Guide (Vercel + Render + Supabase)
 
-For a project like this with a distinct frontend and a Node.js backend, you can completely host it for free using a combination of different platforms. Since you have a monorepo setup (both frontend and backend in one GitHub repository), these platforms will automatically pull your code from GitHub and deploy it.
+This guide walks you through deploying CodeQuest live on the internet using **free tiers** of three platforms:
 
-Here are the best free platforms for each part of your stack:
+| Service | What it hosts | Free tier |
+|---------|--------------|-----------|
+| **Vercel** | Frontend (React/Vite) | ✅ Free forever |
+| **Render** | Backend (Node.js/Express) | ✅ Free (spins down after inactivity) |
+| **Supabase** | Database (PostgreSQL) | ✅ Free (500 MB, 2 projects) |
 
-## 1. Frontend Hosting (React / Vite)
-These platforms are incredibly fast, have great free tiers, and integrate directly with GitHub so they automatically update whenever you push new code:
-* **Vercel** (Highly Recommended): Created by the team behind Next.js. It's incredibly fast, easy to set up for Vite/React, and provides free SSL and a `.vercel.app` subdomain.
-* **Netlify**: Very similar to Vercel and just as good for frontend apps. Great continuous deployment from GitHub.
-* **GitHub Pages**: Free, but better suited for static sites. Vercel or Netlify are much better for React/Vite apps.
+---
 
-## 2. Backend Hosting (Node.js / Express)
-Backend hosting requires a platform that can run a persistent server. The free tiers here usually "spin down" (go to sleep) after a period of inactivity, which means the first request after being idle might take a few seconds to wake up.
-* **Render** (Highly Recommended): Excellent free tier for Node.js backends. Very easy to link to your GitHub repo and configure it to just run your `backend/` folder.
-* **Railway**: A modern, extremely developer-friendly platform. It has a generous free tier (though it's based on a $5/month usage credit rather than being strictly "free forever").
-* **Fly.io**: Gives you free virtual machines. Great performance, but the setup is a bit more technical (requires writing a Dockerfile or using their command-line tool).
-* **Glitch**: Good for small experiments, but Render or Railway are better for full applications.
+## Prerequisites
 
-## 3. Database Hosting (If you are using one)
-If your backend connects to a database, you'll need somewhere to host the data:
-* **Supabase** or **Firebase**: Excellent free tiers if you want a complete Database-as-a-Service.
-* **MongoDB Atlas**: The best choice if you are using MongoDB. Their free shared cluster (M0) is very generous and more than enough for learning/small projects.
-* **Neon**: A great free serverless Postgres database if you are using SQL.
+Before you start, make sure:
+- [x] Your code is pushed to a **GitHub repository**
+- [x] You have accounts on [Vercel](https://vercel.com), [Render](https://render.com), and [Supabase](https://supabase.com)
 
-## My Recommendation for CodeQuest:
-Since you are a solo developer looking for the easiest setup:
-1. Deploy the **Frontend to Vercel**. (You just tell Vercel that the "Root Directory" is `frontend`).
-2. Deploy the **Backend to Render**. (You tell Render the "Root Directory" is `backend`).
-3. Deploy the **Database to MongoDB Atlas** (if you're using Mongo) or **Neon** (if you're using Postgres).
+---
+
+## Step 1: Set Up Supabase (Database)
+
+1. Go to [supabase.com](https://supabase.com) and sign in
+2. Click **"New Project"**
+3. Fill in:
+   - **Project name**: `codequest`
+   - **Database password**: Choose a strong password (save it!)
+   - **Region**: Pick the closest to your users
+4. Wait for the project to be created (~2 minutes)
+5. Go to **Settings → Database**
+6. Under **Connection string**, select **URI** and copy it
+   - It looks like: `postgresql://postgres:[YOUR-PASSWORD]@db.abcdef.supabase.co:5432/postgres`
+   - Replace `[YOUR-PASSWORD]` with the password you chose
+
+> **💡 Tip:** Save this connection string somewhere safe — you'll need it for Render.
+
+---
+
+## Step 2: Deploy Backend to Render
+
+1. Go to [render.com](https://render.com) and sign in
+2. Click **"New +" → "Web Service"**
+3. Connect your **GitHub repository** (`learn-platform`)
+4. Configure the service:
+
+| Setting | Value |
+|---------|-------|
+| **Name** | `codequest-api` |
+| **Region** | Same region as your Supabase project |
+| **Root Directory** | `backend` |
+| **Runtime** | `Node` |
+| **Build Command** | `npm install` |
+| **Start Command** | `npm start` |
+| **Instance Type** | `Free` |
+
+5. Click **"Advanced"** and add these **Environment Variables**:
+
+| Key | Value |
+|-----|-------|
+| `DATABASE_URL` | Your Supabase connection string from Step 1 |
+| `JWT_SECRET` | A strong random string (e.g., generate one at [randomkeygen.com](https://randomkeygen.com)) |
+| `FRONTEND_URL` | Leave blank for now — you'll fill this in after Step 3 |
+
+6. Click **"Create Web Service"**
+7. Wait for the build to finish (~3-5 minutes)
+8. Your backend URL will look like: `https://codequest-api.onrender.com`
+9. Test it by visiting: `https://codequest-api.onrender.com/api/health`
+   - You should see: `{"status":"ok","name":"CodeQuest API","version":"1.0.0"}`
+
+> **⚠️ Note:** The first request after the service spins down (due to inactivity on the free tier) may take 30-60 seconds to respond. This is normal.
+
+---
+
+## Step 3: Deploy Frontend to Vercel
+
+1. Go to [vercel.com](https://vercel.com) and sign in
+2. Click **"Add New..." → "Project"**
+3. Import your **GitHub repository** (`learn-platform`)
+4. Configure:
+
+| Setting | Value |
+|---------|-------|
+| **Root Directory** | `frontend` |
+| **Framework Preset** | `Vite` (should auto-detect) |
+| **Build Command** | `npm run build` |
+| **Output Directory** | `dist` |
+
+5. Add this **Environment Variable**:
+
+| Key | Value |
+|-----|-------|
+| `VITE_API_URL` | `https://codequest-api.onrender.com/api` (your Render URL + `/api`) |
+
+6. Click **"Deploy"**
+7. Wait for the build (~1-2 minutes)
+8. Your frontend URL will look like: `https://learn-platform.vercel.app`
+
+---
+
+## Step 4: Connect Frontend URL Back to Render
+
+Now that you have your Vercel URL, go back to Render and update the environment variable:
+
+1. Go to your Render dashboard → `codequest-api` service
+2. Click **"Environment"**
+3. Set `FRONTEND_URL` to your Vercel URL (e.g., `https://learn-platform.vercel.app`)
+4. Click **"Save Changes"** — the service will automatically redeploy
+
+---
+
+## Step 5: Test Everything
+
+1. Visit your Vercel URL in a browser
+2. Try logging in with a demo account:
+   - **Admin:** `admin` / `admin123`
+   - **Learner:** `coder_kid` / `learn123`
+   - **Parent:** `parent1` / `parent123`
+   - **Teacher:** `teacher1` / `teach123`
+3. Navigate through lessons, take quizzes, check dashboards
+
+---
+
+## Post-Deployment Checklist
+
+- [ ] Backend health check returns OK (`/api/health`)
+- [ ] Frontend loads without console errors
+- [ ] Login works with demo accounts
+- [ ] Lessons load with interactive activities
+- [ ] Quizzes can be submitted and scored
+- [ ] Parent/Teacher dashboards show child progress
+- [ ] Admin dashboard shows platform stats
+
+---
+
+## Environment Variables Summary
+
+### Backend (Render)
+| Variable | Description |
+|----------|-------------|
+| `DATABASE_URL` | Supabase PostgreSQL connection string |
+| `JWT_SECRET` | Secret key for signing auth tokens |
+| `FRONTEND_URL` | Your Vercel frontend URL (for CORS) |
+
+### Frontend (Vercel)
+| Variable | Description |
+|----------|-------------|
+| `VITE_API_URL` | Your Render backend URL + `/api` |
+
+---
+
+## Troubleshooting
+
+### "Failed to fetch" errors in the browser
+- Check that `VITE_API_URL` on Vercel points to the correct Render URL
+- Check that `FRONTEND_URL` on Render matches your Vercel URL exactly
+- Open browser DevTools → Network tab to see the actual failing request
+
+### Backend won't start on Render
+- Check the Render logs for error messages
+- Make sure `DATABASE_URL` is correct and includes your Supabase password
+- Make sure the Root Directory is set to `backend`
+
+### Database tables not created
+- The backend automatically creates tables and seeds data on first start
+- Check Render logs for "✅ Database tables created" and "✅ Database seeded"
+- If you need to reset, go to Supabase → SQL Editor and run `DROP SCHEMA public CASCADE; CREATE SCHEMA public;`, then redeploy on Render
+
+### Slow first load
+- Render's free tier spins down after 15 minutes of inactivity
+- The first request after spin-down takes ~30-60 seconds
+- This is normal and expected on the free tier

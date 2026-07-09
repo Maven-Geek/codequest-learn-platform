@@ -4,8 +4,6 @@
 
 import express from 'express';
 import cors from 'cors';
-import path from 'path';
-import { fileURLToPath } from 'url';
 import { initializeDatabase, seedDatabase } from './database';
 
 // Route imports
@@ -16,12 +14,18 @@ import progressRoutes from './routes/progress';
 import userRoutes from './routes/users';
 import badgeRoutes from './routes/badges';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Allowed frontend origins — local dev + production Vercel URL
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://localhost:3000',
+  process.env.FRONTEND_URL,
+].filter(Boolean) as string[];
+
 // Middleware
-app.use(cors({ origin: ['http://localhost:5173', 'http://localhost:3000'], credentials: true }));
+app.use(cors({ origin: allowedOrigins, credentials: true }));
 app.use(express.json());
 
 // API Routes
@@ -40,15 +44,8 @@ app.get('/api/health', (_req, res) => {
 // Initialize and start
 async function start() {
   try {
-    // Ensure data directory exists
-    const fs = await import('fs');
-    const dataDir = path.join(__dirname, '..', 'data');
-    if (!fs.existsSync(dataDir)) {
-      fs.mkdirSync(dataDir, { recursive: true });
-    }
-
-    // Initialize database
-    initializeDatabase();
+    // Initialize database tables
+    await initializeDatabase();
     await seedDatabase();
 
     app.listen(PORT, () => {

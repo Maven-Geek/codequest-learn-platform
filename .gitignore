@@ -137,4 +137,5 @@ Thumbs.db
 # Project specific
 frontend/dist
 backend/dist
+backend/data
 shared/dist

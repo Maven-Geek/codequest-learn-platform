@@ -1,34 +1,35 @@
 // ============================================================
-// CodeQuest — Database Setup + Seed Data
+// CodeQuest — Database Setup + Seed Data (PostgreSQL / Supabase)
 // ============================================================
 
-import { DatabaseSync } from 'node:sqlite';
+import pg from 'pg';
 import bcrypt from 'bcryptjs';
-import path from 'path';
-import { fileURLToPath } from 'url';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const DB_PATH = path.join(__dirname, '..', 'data', 'codequest.db');
+const { Pool } = pg;
 
-let db: DatabaseSync;
+// Connection pool — uses DATABASE_URL from Supabase
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.DATABASE_URL?.includes('supabase')
+    ? { rejectUnauthorized: false }
+    : false,
+});
 
-export function getDb(): DatabaseSync {
-  if (!db) {
-    db = new DatabaseSync(DB_PATH);
-    db.exec('PRAGMA journal_mode = WAL;');
-    db.exec('PRAGMA foreign_keys = ON;');
-  }
-  return db;
+export function getPool(): pg.Pool {
+  return pool;
+}
+
+// Helper for running queries — use this in route handlers
+export async function query(text: string, params?: any[]): Promise<pg.QueryResult> {
+  return pool.query(text, params);
 }
 
 // ---- Schema Creation ----
 
-export function initializeDatabase(): void {
-  const db = getDb();
-
-  db.exec(`
+export async function initializeDatabase(): Promise<void> {
+  await query(`
     CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       username TEXT UNIQUE NOT NULL,
       email TEXT NOT NULL,
       password_hash TEXT NOT NULL,
@@ -37,11 +38,11 @@ export function initializeDatabase(): void {
       avatar_url TEXT DEFAULT '🤖',
       parent_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
       teacher_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      created_at TIMESTAMPTZ DEFAULT NOW()
     );
 
     CREATE TABLE IF NOT EXISTS levels (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       title TEXT NOT NULL,
       order_index INTEGER NOT NULL,
       description TEXT NOT NULL,
@@ -49,7 +50,7 @@ export function initializeDatabase(): void {
     );
 
     CREATE TABLE IF NOT EXISTS lessons (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       level_id INTEGER NOT NULL REFERENCES levels(id) ON DELETE CASCADE,
       order_index INTEGER NOT NULL,
       title TEXT NOT NULL,
@@ -57,17 +58,17 @@ export function initializeDatabase(): void {
       example TEXT NOT NULL,
       activity_type TEXT NOT NULL CHECK(activity_type IN ('drag-drop', 'puzzle', 'pattern', 'game')),
       activity_data TEXT NOT NULL DEFAULT '{}',
-      is_published INTEGER DEFAULT 1
+      is_published BOOLEAN DEFAULT true
     );
 
     CREATE TABLE IF NOT EXISTS quizzes (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       lesson_id INTEGER NOT NULL UNIQUE REFERENCES lessons(id) ON DELETE CASCADE,
       passing_score INTEGER NOT NULL DEFAULT 70
     );
 
     CREATE TABLE IF NOT EXISTS quiz_questions (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       quiz_id INTEGER NOT NULL REFERENCES quizzes(id) ON DELETE CASCADE,
       question_text TEXT NOT NULL,
       options TEXT NOT NULL DEFAULT '[]',
@@ -75,7 +76,7 @@ export function initializeDatabase(): void {
     );
 
     CREATE TABLE IF NOT EXISTS badges (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       name TEXT NOT NULL,
       description TEXT NOT NULL,
       icon_emoji TEXT NOT NULL DEFAULT '🏅',
@@ -83,22 +84,22 @@ export function initializeDatabase(): void {
     );
 
     CREATE TABLE IF NOT EXISTS user_progress (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       lesson_id INTEGER NOT NULL REFERENCES lessons(id) ON DELETE CASCADE,
-      completed INTEGER DEFAULT 0,
+      completed BOOLEAN DEFAULT false,
       quiz_score INTEGER,
-      quiz_passed INTEGER DEFAULT 0,
+      quiz_passed BOOLEAN DEFAULT false,
       points_earned INTEGER DEFAULT 0,
-      completed_at DATETIME,
+      completed_at TIMESTAMPTZ,
       UNIQUE(user_id, lesson_id)
     );
 
     CREATE TABLE IF NOT EXISTS user_badges (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       badge_id INTEGER NOT NULL REFERENCES badges(id) ON DELETE CASCADE,
-      earned_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      earned_at TIMESTAMPTZ DEFAULT NOW(),
       UNIQUE(user_id, badge_id)
     );
   `);
@@ -109,11 +110,9 @@ export function initializeDatabase(): void {
 // ---- Seed Data ----
 
 export async function seedDatabase(): Promise<void> {
-  const db = getDb();
-
   // Check if already seeded
-  const levelCount = db.prepare('SELECT COUNT(*) as count FROM levels').get() as { count: number };
-  if (levelCount.count > 0) {
+  const levelCheck = await query('SELECT COUNT(*) as count FROM levels');
+  if (parseInt(levelCheck.rows[0].count) > 0) {
     console.log('📦 Database already seeded, skipping');
     return;
   }
@@ -121,429 +120,541 @@ export async function seedDatabase(): Promise<void> {
   console.log('🌱 Seeding database...');
 
   // ---- Levels ----
-  const insertLevel = db.prepare(
-    'INSERT INTO levels (title, order_index, description, icon_emoji) VALUES (?, ?, ?, ?)'
+  await query(
+    `INSERT INTO levels (title, order_index, description, icon_emoji) VALUES
+      ('Star Island', 1, 'Begin your coding adventure! Learn what coding is and how to give instructions step by step.', '🌟'),
+      ('Rocket Valley', 2, 'Blast off with loops, patterns, and making decisions in your code!', '🚀'),
+      ('Champion Peak', 3, 'Reach the top! Use variables, combine skills, and create your own programs!', '🏆')`
   );
-  insertLevel.run('Star Island', 1, 'Begin your coding adventure! Learn what coding is and how to give instructions step by step.', '🌟');
-  insertLevel.run('Rocket Valley', 2, 'Blast off with loops, patterns, and making decisions in your code!', '🚀');
-  insertLevel.run('Champion Peak', 3, 'Reach the top! Use variables, combine skills, and create your own programs!', '🏆');
 
   // ---- Lessons ----
-  const insertLesson = db.prepare(
-    'INSERT INTO lessons (level_id, order_index, title, explanation, example, activity_type, activity_data) VALUES (?, ?, ?, ?, ?, ?, ?)'
-  );
 
   // --- Level 1: Star Island ---
 
   // Lesson 1: What is Coding?
-  insertLesson.run(1, 1, 'What is Coding?',
-    `# What is Coding? 🤔\n\nCoding is like giving instructions to a computer! Just like you follow steps to get dressed in the morning, a computer follows steps that we write for it.\n\n**Think about it:** When you make a sandwich, you follow steps:\n1. Get bread\n2. Add peanut butter\n3. Add jelly\n4. Put bread on top\n\nThat's what coding is — writing steps in the right order!`,
-    `## Example: Morning Routine 🌅\n\nHere's a "program" for getting ready:\n\n1. ⏰ Wake up\n2. 🪥 Brush teeth\n3. 👕 Get dressed\n4. 🥣 Eat breakfast\n5. 🎒 Go to school\n\nIf you mix up the order, things get silly! Imagine going to school before getting dressed! 😂\n\n**The order matters** — and that's called **sequencing**.`,
-    'drag-drop',
-    JSON.stringify({
-      instructions: 'Put these morning routine steps in the right order! Drag each block to the correct position.',
-      availableBlocks: [
-        { id: 'step-eat', type: 'step', label: '🥣 Eat breakfast', color: '#FF9F43' },
-        { id: 'step-wake', type: 'step', label: '⏰ Wake up', color: '#54A0FF' },
-        { id: 'step-school', type: 'step', label: '🎒 Go to school', color: '#5F27CD' },
-        { id: 'step-dress', type: 'step', label: '👕 Get dressed', color: '#01A3A4' },
-        { id: 'step-brush', type: 'step', label: '🪥 Brush teeth', color: '#FF6B6B' }
-      ],
-      correctSequence: ['step-wake', 'step-brush', 'step-dress', 'step-eat', 'step-school']
-    })
+  await query(
+    `INSERT INTO lessons (level_id, order_index, title, explanation, example, activity_type, activity_data) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+    [1, 1, 'What is Coding?',
+      `# What is Coding? 🤔\n\nCoding is like giving instructions to a computer! Just like you follow steps to get dressed in the morning, a computer follows steps that we write for it.\n\n**Think about it:** When you make a sandwich, you follow steps:\n1. Get bread\n2. Add peanut butter\n3. Add jelly\n4. Put bread on top\n\nThat's what coding is — writing steps in the right order!`,
+      `## Example: Morning Routine 🌅\n\nHere's a "program" for getting ready:\n\n1. ⏰ Wake up\n2. 🪥 Brush teeth\n3. 👕 Get dressed\n4. 🥣 Eat breakfast\n5. 🎒 Go to school\n\nIf you mix up the order, things get silly! Imagine going to school before getting dressed! 😂\n\n**The order matters** — and that's called **sequencing**.`,
+      'drag-drop',
+      JSON.stringify({
+        instructions: 'Put these morning routine steps in the right order! Drag each block to the correct position.',
+        availableBlocks: [
+          { id: 'step-eat', type: 'step', label: '🥣 Eat breakfast', color: '#FF9F43' },
+          { id: 'step-wake', type: 'step', label: '⏰ Wake up', color: '#54A0FF' },
+          { id: 'step-school', type: 'step', label: '🎒 Go to school', color: '#5F27CD' },
+          { id: 'step-dress', type: 'step', label: '👕 Get dressed', color: '#01A3A4' },
+          { id: 'step-brush', type: 'step', label: '🪥 Brush teeth', color: '#FF6B6B' }
+        ],
+        correctSequence: ['step-wake', 'step-brush', 'step-dress', 'step-eat', 'step-school']
+      })
+    ]
   );
 
   // Lesson 2: Giving Instructions
-  insertLesson.run(1, 2, 'Giving Instructions',
-    `# Giving Instructions 🗺️\n\nComputers only do exactly what you tell them. They can't guess!\n\nImagine you have a robot friend. To make it walk to a treasure chest, you need to give it **clear, step-by-step instructions**.\n\nEach instruction is like one block:\n- 🔵 **Move Forward** — walk one step ahead\n- 🟠 **Turn Left** — face left\n- 🟢 **Turn Right** — face right`,
-    `## Example: Robot Walk 🤖\n\nTo move the robot 3 steps forward:\n\n| Step | Instruction |\n|------|------------|\n| 1 | 🔵 Move Forward |\n| 2 | 🔵 Move Forward |\n| 3 | 🔵 Move Forward |\n\nThe robot does each step one at a time, in order!`,
-    'drag-drop',
-    JSON.stringify({
-      instructions: 'Help the robot reach the star! Drag the right blocks in the right order.',
-      availableBlocks: [
-        { id: 'move-1', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
-        { id: 'move-2', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
-        { id: 'move-3', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
-        { id: 'turn-r', type: 'turn-right', label: '🟢 Turn Right', color: '#01A3A4' },
-        { id: 'move-4', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
-        { id: 'move-5', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' }
-      ],
-      correctSequence: ['move-1', 'move-2', 'turn-r', 'move-3', 'move-4', 'move-5'],
-      gridSize: { rows: 4, cols: 5 },
-      startPosition: { row: 2, col: 0 },
-      endPosition: { row: 0, col: 4 },
-      characterEmoji: '🤖',
-      goalEmoji: '⭐'
-    })
+  await query(
+    `INSERT INTO lessons (level_id, order_index, title, explanation, example, activity_type, activity_data) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+    [1, 2, 'Giving Instructions',
+      `# Giving Instructions 🗺️\n\nComputers only do exactly what you tell them. They can't guess!\n\nImagine you have a robot friend. To make it walk to a treasure chest, you need to give it **clear, step-by-step instructions**.\n\nEach instruction is like one block:\n- 🔵 **Move Forward** — walk one step ahead\n- 🟠 **Turn Left** — face left\n- 🟢 **Turn Right** — face right`,
+      `## Example: Robot Walk 🤖\n\nTo move the robot 3 steps forward:\n\n| Step | Instruction |\n|------|------------|\n| 1 | 🔵 Move Forward |\n| 2 | 🔵 Move Forward |\n| 3 | 🔵 Move Forward |\n\nThe robot does each step one at a time, in order!`,
+      'drag-drop',
+      JSON.stringify({
+        instructions: 'Help the robot reach the star! Drag the right blocks in the right order.',
+        availableBlocks: [
+          { id: 'move-1', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+          { id: 'move-2', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+          { id: 'move-3', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+          { id: 'turn-r', type: 'turn-right', label: '🟢 Turn Right', color: '#01A3A4' },
+          { id: 'move-4', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+          { id: 'move-5', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' }
+        ],
+        correctSequence: ['move-1', 'move-2', 'turn-r', 'move-3', 'move-4', 'move-5'],
+        gridSize: { rows: 4, cols: 5 },
+        startPosition: { row: 2, col: 0 },
+        endPosition: { row: 0, col: 4 },
+        characterEmoji: '🤖',
+        goalEmoji: '⭐'
+      })
+    ]
   );
 
   // Lesson 3: Sequence Matters!
-  insertLesson.run(1, 3, 'Sequence Matters!',
-    `# Sequence Matters! 🎯\n\nIn coding, the **order** of your instructions is super important. If you put things in the wrong order, your program won't work right!\n\nThis is called **sequencing** — putting steps in the correct order.\n\n**Real life example:** What happens if you try to pour milk before opening the carton? 🥛 It doesn't work!`,
-    `## Example: Baking a Cake 🎂\n\nRight order:\n1. 📖 Read recipe\n2. 🥣 Mix ingredients\n3. 🫙 Pour into pan\n4. 🔥 Put in oven\n5. ⏲️ Wait to bake\n6. 🎂 Decorate!\n\nWrong order:\n1. 🔥 Put in oven (wait, what goes in?!)\n2. 🎂 Decorate (nothing to decorate!)\n\n**Sequencing = Right order = Working code!**`,
-    'puzzle',
-    JSON.stringify({
-      instructions: 'These steps for baking a cake are all mixed up! Put them in the right order.',
-      puzzleType: 'sequence',
-      items: [
-        { id: 'bake-decorate', content: '🎂 Decorate the cake' },
-        { id: 'bake-mix', content: '🥣 Mix the ingredients' },
-        { id: 'bake-pour', content: '🫙 Pour into pan' },
-        { id: 'bake-read', content: '📖 Read the recipe' },
-        { id: 'bake-wait', content: '⏲️ Wait to bake' },
-        { id: 'bake-oven', content: '🔥 Put in oven' }
-      ],
-      correctOrder: ['bake-read', 'bake-mix', 'bake-pour', 'bake-oven', 'bake-wait', 'bake-decorate']
-    })
+  await query(
+    `INSERT INTO lessons (level_id, order_index, title, explanation, example, activity_type, activity_data) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+    [1, 3, 'Sequence Matters!',
+      `# Sequence Matters! 🎯\n\nIn coding, the **order** of your instructions is super important. If you put things in the wrong order, your program won't work right!\n\nThis is called **sequencing** — putting steps in the correct order.\n\n**Real life example:** What happens if you try to pour milk before opening the carton? 🥛 It doesn't work!`,
+      `## Example: Baking a Cake 🎂\n\nRight order:\n1. 📖 Read recipe\n2. 🥣 Mix ingredients\n3. 🫙 Pour into pan\n4. 🔥 Put in oven\n5. ⏲️ Wait to bake\n6. 🎂 Decorate!\n\nWrong order:\n1. 🔥 Put in oven (wait, what goes in?!)\n2. 🎂 Decorate (nothing to decorate!)\n\n**Sequencing = Right order = Working code!**`,
+      'puzzle',
+      JSON.stringify({
+        instructions: 'These steps for baking a cake are all mixed up! Put them in the right order.',
+        puzzleType: 'sequence',
+        items: [
+          { id: 'bake-decorate', content: '🎂 Decorate the cake' },
+          { id: 'bake-mix', content: '🥣 Mix the ingredients' },
+          { id: 'bake-pour', content: '🫙 Pour into pan' },
+          { id: 'bake-read', content: '📖 Read the recipe' },
+          { id: 'bake-wait', content: '⏲️ Wait to bake' },
+          { id: 'bake-oven', content: '🔥 Put in oven' }
+        ],
+        correctOrder: ['bake-read', 'bake-mix', 'bake-pour', 'bake-oven', 'bake-wait', 'bake-decorate']
+      })
+    ]
   );
 
   // --- Level 2: Rocket Valley ---
 
   // Lesson 4: Loops
-  insertLesson.run(2, 1, 'Loops — Doing Things Again',
-    `# Loops — Doing Things Again 🔄\n\nSometimes you need to do the same thing many times. Instead of writing the same instruction over and over, you can use a **loop**!\n\nA loop says: "Do this action X number of times."\n\n**Real life example:** When you bounce a ball 10 times, you don't think "bounce, bounce, bounce..." ten separate times. You think "bounce the ball 10 times!" That's a loop!`,
-    `## Example: Without Loop vs With Loop\n\n**Without a loop** (so much writing!):\n1. 🔵 Move Forward\n2. 🔵 Move Forward\n3. 🔵 Move Forward\n4. 🔵 Move Forward\n\n**With a loop** (much easier!):\n🔁 Repeat 4 times:\n  - 🔵 Move Forward\n\nBoth do the same thing, but the loop is shorter and smarter! 🧠`,
-    'drag-drop',
-    JSON.stringify({
-      instructions: 'Use a REPEAT block to move the robot to the star. Don\'t use too many blocks!',
-      availableBlocks: [
-        { id: 'repeat-4', type: 'repeat', label: '🔁 Repeat 4 times', color: '#FF9F43', repeatCount: 4 },
-        { id: 'move-loop', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
-        { id: 'turn-r-loop', type: 'turn-right', label: '🟢 Turn Right', color: '#01A3A4' },
-        { id: 'repeat-2', type: 'repeat', label: '🔁 Repeat 2 times', color: '#FF9F43', repeatCount: 2 },
-        { id: 'move-extra', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' }
-      ],
-      correctSequence: ['repeat-4', 'move-loop'],
-      gridSize: { rows: 1, cols: 5 },
-      startPosition: { row: 0, col: 0 },
-      endPosition: { row: 0, col: 4 },
-      characterEmoji: '🤖',
-      goalEmoji: '⭐'
-    })
+  await query(
+    `INSERT INTO lessons (level_id, order_index, title, explanation, example, activity_type, activity_data) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+    [2, 1, 'Loops — Doing Things Again',
+      `# Loops — Doing Things Again 🔄\n\nSometimes you need to do the same thing many times. Instead of writing the same instruction over and over, you can use a **loop**!\n\nA loop says: "Do this action X number of times."\n\n**Real life example:** When you bounce a ball 10 times, you don't think "bounce, bounce, bounce..." ten separate times. You think "bounce the ball 10 times!" That's a loop!`,
+      `## Example: Without Loop vs With Loop\n\n**Without a loop** (so much writing!):\n1. 🔵 Move Forward\n2. 🔵 Move Forward\n3. 🔵 Move Forward\n4. 🔵 Move Forward\n\n**With a loop** (much easier!):\n🔁 Repeat 4 times:\n  - 🔵 Move Forward\n\nBoth do the same thing, but the loop is shorter and smarter! 🧠`,
+      'drag-drop',
+      JSON.stringify({
+        instructions: 'Use a REPEAT block to move the robot to the star. Don\'t use too many blocks!',
+        availableBlocks: [
+          { id: 'repeat-4', type: 'repeat', label: '🔁 Repeat 4 times', color: '#FF9F43', repeatCount: 4 },
+          { id: 'move-loop', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+          { id: 'turn-r-loop', type: 'turn-right', label: '🟢 Turn Right', color: '#01A3A4' },
+          { id: 'repeat-2', type: 'repeat', label: '🔁 Repeat 2 times', color: '#FF9F43', repeatCount: 2 },
+          { id: 'move-extra', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' }
+        ],
+        correctSequence: ['repeat-4', 'move-loop'],
+        gridSize: { rows: 1, cols: 5 },
+        startPosition: { row: 0, col: 0 },
+        endPosition: { row: 0, col: 4 },
+        characterEmoji: '🤖',
+        goalEmoji: '⭐'
+      })
+    ]
   );
 
   // Lesson 5: Patterns & Repetition
-  insertLesson.run(2, 2, 'Patterns & Repetition',
-    `# Patterns & Repetition 🎨\n\nPatterns are everywhere! In music 🎵, in art 🎨, and in coding 💻.\n\nA **pattern** is something that repeats in a predictable way. When you spot a pattern, you can use **loops** to create it!\n\n**Examples:**\n- 🔴🔵🔴🔵🔴🔵 — the pattern is 🔴🔵, repeated 3 times\n- ⬆️➡️⬆️➡️ — the pattern is ⬆️➡️, repeated 2 times`,
-    `## Example: Color Pattern\n\nWhat comes next?\n🟢🟡🟢🟡🟢❓\n\nThe pattern is 🟢🟡 repeating.\nSo the answer is 🟡!\n\n## Example: Shape Pattern\n\n⭐🌙⭐🌙⭐❓\n\nThe pattern is ⭐🌙 repeating.\nSo the answer is 🌙!`,
-    'puzzle',
-    JSON.stringify({
-      instructions: 'Complete the pattern! Drag the items to fill in the missing spots.',
-      puzzleType: 'pattern',
-      items: [
-        { id: 'p-red', content: '🔴', type: 'circle' },
-        { id: 'p-blue', content: '🔵', type: 'circle' },
-        { id: 'p-red2', content: '🔴', type: 'circle' },
-        { id: 'p-blue2', content: '🔵', type: 'circle' },
-        { id: 'p-red3', content: '🔴', type: 'circle' },
-        { id: 'p-blue3', content: '🔵', type: 'circle' }
-      ],
-      correctOrder: ['p-red', 'p-blue', 'p-red2', 'p-blue2', 'p-red3', 'p-blue3']
-    })
+  await query(
+    `INSERT INTO lessons (level_id, order_index, title, explanation, example, activity_type, activity_data) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+    [2, 2, 'Patterns & Repetition',
+      `# Patterns & Repetition 🎨\n\nPatterns are everywhere! In music 🎵, in art 🎨, and in coding 💻.\n\nA **pattern** is something that repeats in a predictable way. When you spot a pattern, you can use **loops** to create it!\n\n**Examples:**\n- 🔴🔵🔴🔵🔴🔵 — the pattern is 🔴🔵, repeated 3 times\n- ⬆️➡️⬆️➡️ — the pattern is ⬆️➡️, repeated 2 times`,
+      `## Example: Color Pattern\n\nWhat comes next?\n🟢🟡🟢🟡🟢❓\n\nThe pattern is 🟢🟡 repeating.\nSo the answer is 🟡!\n\n## Example: Shape Pattern\n\n⭐🌙⭐🌙⭐❓\n\nThe pattern is ⭐🌙 repeating.\nSo the answer is 🌙!`,
+      'puzzle',
+      JSON.stringify({
+        instructions: 'Complete the pattern! Drag the items to fill in the missing spots.',
+        puzzleType: 'pattern',
+        items: [
+          { id: 'p-red', content: '🔴', type: 'circle' },
+          { id: 'p-blue', content: '🔵', type: 'circle' },
+          { id: 'p-red2', content: '🔴', type: 'circle' },
+          { id: 'p-blue2', content: '🔵', type: 'circle' },
+          { id: 'p-red3', content: '🔴', type: 'circle' },
+          { id: 'p-blue3', content: '🔵', type: 'circle' }
+        ],
+        correctOrder: ['p-red', 'p-blue', 'p-red2', 'p-blue2', 'p-red3', 'p-blue3']
+      })
+    ]
   );
 
   // Lesson 6: Making Decisions (Conditions)
-  insertLesson.run(2, 3, 'Making Decisions',
-    `# Making Decisions 🤔\n\nIn real life, you make decisions all the time:\n- **If** it's raining → take an umbrella ☔\n- **If** you're hungry → eat a snack 🍎\n- **If** the light is red → stop! 🛑\n\nIn coding, we call these **conditions** or **if-statements**. The computer checks if something is true, and then decides what to do!\n\n**Pattern:** IF (something is true) → THEN (do this action)`,
-    `## Example: Robot Decision\n\nOur robot is walking and might find a wall:\n\n🟩 IF wall ahead → 🟠 Turn Right\n🟩 IF no wall → 🔵 Move Forward\n\nThe robot checks at each step:\n- Is there a wall? If yes, turn.\n- No wall? Keep going!\n\nThis is how robots and programs make smart choices! 🧠`,
-    'drag-drop',
-    JSON.stringify({
-      instructions: 'Help the robot navigate the maze! Use IF blocks to handle walls.',
-      availableBlocks: [
-        { id: 'move-m', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
-        { id: 'if-wall', type: 'if-wall', label: '🟩 If Wall → Turn', color: '#2ECC71' },
-        { id: 'move-m2', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
-        { id: 'move-m3', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
-        { id: 'turn-r-m', type: 'turn-right', label: '🟢 Turn Right', color: '#01A3A4' }
-      ],
-      correctSequence: ['move-m', 'move-m2', 'if-wall', 'turn-r-m', 'move-m3'],
-      gridSize: { rows: 3, cols: 4 },
-      startPosition: { row: 2, col: 0 },
-      endPosition: { row: 0, col: 3 },
-      walls: [{ row: 2, col: 2 }],
-      characterEmoji: '🤖',
-      goalEmoji: '🏁'
-    })
+  await query(
+    `INSERT INTO lessons (level_id, order_index, title, explanation, example, activity_type, activity_data) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+    [2, 3, 'Making Decisions',
+      `# Making Decisions 🤔\n\nIn real life, you make decisions all the time:\n- **If** it's raining → take an umbrella ☔\n- **If** you're hungry → eat a snack 🍎\n- **If** the light is red → stop! 🛑\n\nIn coding, we call these **conditions** or **if-statements**. The computer checks if something is true, and then decides what to do!\n\n**Pattern:** IF (something is true) → THEN (do this action)`,
+      `## Example: Robot Decision\n\nOur robot is walking and might find a wall:\n\n🟩 IF wall ahead → 🟠 Turn Right\n🟩 IF no wall → 🔵 Move Forward\n\nThe robot checks at each step:\n- Is there a wall? If yes, turn.\n- No wall? Keep going!\n\nThis is how robots and programs make smart choices! 🧠`,
+      'drag-drop',
+      JSON.stringify({
+        instructions: 'Help the robot navigate the maze! Use IF blocks to handle walls.',
+        availableBlocks: [
+          { id: 'move-m', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+          { id: 'if-wall', type: 'if-wall', label: '🟩 If Wall → Turn', color: '#2ECC71' },
+          { id: 'move-m2', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+          { id: 'move-m3', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+          { id: 'turn-r-m', type: 'turn-right', label: '🟢 Turn Right', color: '#01A3A4' }
+        ],
+        correctSequence: ['move-m', 'move-m2', 'if-wall', 'turn-r-m', 'move-m3'],
+        gridSize: { rows: 3, cols: 4 },
+        startPosition: { row: 2, col: 0 },
+        endPosition: { row: 0, col: 3 },
+        walls: [{ row: 2, col: 2 }],
+        characterEmoji: '🤖',
+        goalEmoji: '🏁'
+      })
+    ]
   );
 
   // --- Level 3: Champion Peak ---
 
   // Lesson 7: Variables
-  insertLesson.run(3, 1, 'Variables — Remembering Things',
-    `# Variables — Remembering Things 📦\n\nA **variable** is like a labeled box where you can store information.\n\nImagine you have a box labeled "Score". You can:\n- 📥 **Put** a number in it: Score = 0\n- 👀 **Look** at what's inside: Score is 0\n- ✏️ **Change** what's inside: Score = Score + 10\n\nVariables help your program remember and use information!`,
-    `## Example: Counting Coins 🪙\n\n**Variable:** coins = 0\n\n| Step | Action | coins value |\n|------|--------|-------------|\n| 1 | Pick up coin | coins = 1 |\n| 2 | Pick up coin | coins = 2 |\n| 3 | Pick up coin | coins = 3 |\n\nThe variable "coins" keeps track of how many coins we've collected!\n\nAt the end, we can check: "Do we have 3 coins?" ✅`,
-    'drag-drop',
-    JSON.stringify({
-      instructions: 'Help the robot collect all 3 coins! Watch the coin counter variable change as you collect them.',
-      availableBlocks: [
-        { id: 'move-v1', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
-        { id: 'pick-1', type: 'pick-up', label: '🟡 Pick Up Coin', color: '#FECA57' },
-        { id: 'move-v2', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
-        { id: 'pick-2', type: 'pick-up', label: '🟡 Pick Up Coin', color: '#FECA57' },
-        { id: 'move-v3', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
-        { id: 'pick-3', type: 'pick-up', label: '🟡 Pick Up Coin', color: '#FECA57' }
-      ],
-      correctSequence: ['move-v1', 'pick-1', 'move-v2', 'pick-2', 'move-v3', 'pick-3'],
-      gridSize: { rows: 1, cols: 7 },
-      startPosition: { row: 0, col: 0 },
-      endPosition: { row: 0, col: 6 },
-      collectibles: [{ row: 0, col: 1 }, { row: 0, col: 3 }, { row: 0, col: 5 }],
-      characterEmoji: '🤖',
-      goalEmoji: '🏆'
-    })
+  await query(
+    `INSERT INTO lessons (level_id, order_index, title, explanation, example, activity_type, activity_data) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+    [3, 1, 'Variables — Remembering Things',
+      `# Variables — Remembering Things 📦\n\nA **variable** is like a labeled box where you can store information.\n\nImagine you have a box labeled "Score". You can:\n- 📥 **Put** a number in it: Score = 0\n- 👀 **Look** at what's inside: Score is 0\n- ✏️ **Change** what's inside: Score = Score + 10\n\nVariables help your program remember and use information!`,
+      `## Example: Counting Coins 🪙\n\n**Variable:** coins = 0\n\n| Step | Action | coins value |\n|------|--------|-------------|\n| 1 | Pick up coin | coins = 1 |\n| 2 | Pick up coin | coins = 2 |\n| 3 | Pick up coin | coins = 3 |\n\nThe variable "coins" keeps track of how many coins we've collected!\n\nAt the end, we can check: "Do we have 3 coins?" ✅`,
+      'drag-drop',
+      JSON.stringify({
+        instructions: 'Help the robot collect all 3 coins! Watch the coin counter variable change as you collect them.',
+        availableBlocks: [
+          { id: 'move-v1', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+          { id: 'pick-1', type: 'pick-up', label: '🟡 Pick Up Coin', color: '#FECA57' },
+          { id: 'move-v2', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+          { id: 'pick-2', type: 'pick-up', label: '🟡 Pick Up Coin', color: '#FECA57' },
+          { id: 'move-v3', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+          { id: 'pick-3', type: 'pick-up', label: '🟡 Pick Up Coin', color: '#FECA57' }
+        ],
+        correctSequence: ['move-v1', 'pick-1', 'move-v2', 'pick-2', 'move-v3', 'pick-3'],
+        gridSize: { rows: 1, cols: 7 },
+        startPosition: { row: 0, col: 0 },
+        endPosition: { row: 0, col: 6 },
+        collectibles: [{ row: 0, col: 1 }, { row: 0, col: 3 }, { row: 0, col: 5 }],
+        characterEmoji: '🤖',
+        goalEmoji: '🏆'
+      })
+    ]
   );
 
   // Lesson 8: Combining Everything
-  insertLesson.run(3, 2, 'Combining Everything',
-    `# Combining Everything 🧩\n\nNow you know:\n- ✅ **Sequencing** — putting steps in order\n- ✅ **Loops** — repeating actions\n- ✅ **Conditions** — making decisions\n- ✅ **Variables** — remembering things\n\nReal programs use **all of these together**! Let's practice combining them to solve bigger challenges.`,
-    `## Example: Smart Robot\n\nHere's a program that uses everything:\n\n📦 coins = 0\n🔁 Repeat 3 times:\n  🔵 Move Forward\n  🟩 If coin here → Pick Up (coins = coins + 1)\n🟩 If coins = 3 → 🎉 Celebrate!\n\nThis program uses:\n- A **variable** (coins)\n- A **loop** (repeat 3 times)\n- **Conditions** (if coin here, if coins = 3)\n- **Sequence** (the order of everything)`,
-    'puzzle',
-    JSON.stringify({
-      instructions: 'Put together a complete program using all the concepts you\'ve learned! Arrange these steps in the right order.',
-      puzzleType: 'sequence',
-      items: [
-        { id: 'combo-check', content: '🟩 If coins = 3, celebrate! 🎉' },
-        { id: 'combo-loop', content: '🔁 Repeat 3 times: Move & Check' },
-        { id: 'combo-var', content: '📦 Set coins = 0' },
-        { id: 'combo-move', content: '🔵 Move Forward' },
-        { id: 'combo-pick', content: '🟩 If coin here → Pick up coin' }
-      ],
-      correctOrder: ['combo-var', 'combo-loop', 'combo-move', 'combo-pick', 'combo-check']
-    })
+  await query(
+    `INSERT INTO lessons (level_id, order_index, title, explanation, example, activity_type, activity_data) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+    [3, 2, 'Combining Everything',
+      `# Combining Everything 🧩\n\nNow you know:\n- ✅ **Sequencing** — putting steps in order\n- ✅ **Loops** — repeating actions\n- ✅ **Conditions** — making decisions\n- ✅ **Variables** — remembering things\n\nReal programs use **all of these together**! Let's practice combining them to solve bigger challenges.`,
+      `## Example: Smart Robot\n\nHere's a program that uses everything:\n\n📦 coins = 0\n🔁 Repeat 3 times:\n  🔵 Move Forward\n  🟩 If coin here → Pick Up (coins = coins + 1)\n🟩 If coins = 3 → 🎉 Celebrate!\n\nThis program uses:\n- A **variable** (coins)\n- A **loop** (repeat 3 times)\n- **Conditions** (if coin here, if coins = 3)\n- **Sequence** (the order of everything)`,
+      'puzzle',
+      JSON.stringify({
+        instructions: 'Put together a complete program using all the concepts you\'ve learned! Arrange these steps in the right order.',
+        puzzleType: 'sequence',
+        items: [
+          { id: 'combo-check', content: '🟩 If coins = 3, celebrate! 🎉' },
+          { id: 'combo-loop', content: '🔁 Repeat 3 times: Move & Check' },
+          { id: 'combo-var', content: '📦 Set coins = 0' },
+          { id: 'combo-move', content: '🔵 Move Forward' },
+          { id: 'combo-pick', content: '🟩 If coin here → Pick up coin' }
+        ],
+        correctOrder: ['combo-var', 'combo-loop', 'combo-move', 'combo-pick', 'combo-check']
+      })
+    ]
   );
 
   // Lesson 9: Build Your Own!
-  insertLesson.run(3, 3, 'Build Your Own!',
-    `# Build Your Own! 🎨\n\nCongratulations! You've learned all the basics of coding:\n- Sequencing\n- Loops\n- Conditions\n- Variables\n- Patterns\n\nNow it's time for the **ultimate challenge**: create your own program! Use any blocks you want to guide the robot through a custom course.\n\nThere's no single right answer — be creative! 🌈`,
-    `## Tips for Your Creation 💡\n\n1. **Plan first** — think about what you want the robot to do\n2. **Start simple** — get the basic steps right\n3. **Add loops** — can you make it shorter?\n4. **Test it** — run your program and see what happens!\n\nRemember: Real programmers try, fail, fix, and try again. That's how coding works! 💪`,
-    'game',
-    JSON.stringify({
-      instructions: 'Create your own program! Use any blocks to navigate the robot around the grid. Try to visit as many squares as you can!',
-      gameType: 'free-play',
-      availableBlocks: [
-        { id: 'fp-move1', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
-        { id: 'fp-move2', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
-        { id: 'fp-move3', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
-        { id: 'fp-turnl', type: 'turn-left', label: '🟠 Turn Left', color: '#FF9F43' },
-        { id: 'fp-turnr', type: 'turn-right', label: '🟢 Turn Right', color: '#01A3A4' },
-        { id: 'fp-repeat', type: 'repeat', label: '🔁 Repeat 2 times', color: '#FF9F43', repeatCount: 2 },
-        { id: 'fp-pickup', type: 'pick-up', label: '🟡 Pick Up', color: '#FECA57' },
-        { id: 'fp-move4', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
-        { id: 'fp-move5', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
-        { id: 'fp-turnl2', type: 'turn-left', label: '🟠 Turn Left', color: '#FF9F43' }
-      ],
-      gridSize: { rows: 5, cols: 5 },
-      startPosition: { row: 2, col: 2 },
-      objectives: ['Use at least 4 blocks', 'Visit at least 3 different squares', 'Have fun!']
-    })
+  await query(
+    `INSERT INTO lessons (level_id, order_index, title, explanation, example, activity_type, activity_data) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+    [3, 3, 'Build Your Own!',
+      `# Build Your Own! 🎨\n\nCongratulations! You've learned all the basics of coding:\n- Sequencing\n- Loops\n- Conditions\n- Variables\n- Patterns\n\nNow it's time for the **ultimate challenge**: create your own program! Use any blocks you want to guide the robot through a custom course.\n\nThere's no single right answer — be creative! 🌈`,
+      `## Tips for Your Creation 💡\n\n1. **Plan first** — think about what you want the robot to do\n2. **Start simple** — get the basic steps right\n3. **Add loops** — can you make it shorter?\n4. **Test it** — run your program and see what happens!\n\nRemember: Real programmers try, fail, fix, and try again. That's how coding works! 💪`,
+      'game',
+      JSON.stringify({
+        instructions: 'Create your own program! Use any blocks to navigate the robot around the grid. Try to visit as many squares as you can!',
+        gameType: 'free-play',
+        availableBlocks: [
+          { id: 'fp-move1', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+          { id: 'fp-move2', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+          { id: 'fp-move3', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+          { id: 'fp-turnl', type: 'turn-left', label: '🟠 Turn Left', color: '#FF9F43' },
+          { id: 'fp-turnr', type: 'turn-right', label: '🟢 Turn Right', color: '#01A3A4' },
+          { id: 'fp-repeat', type: 'repeat', label: '🔁 Repeat 2 times', color: '#FF9F43', repeatCount: 2 },
+          { id: 'fp-pickup', type: 'pick-up', label: '🟡 Pick Up', color: '#FECA57' },
+          { id: 'fp-move4', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+          { id: 'fp-move5', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+          { id: 'fp-turnl2', type: 'turn-left', label: '🟠 Turn Left', color: '#FF9F43' }
+        ],
+        gridSize: { rows: 5, cols: 5 },
+        startPosition: { row: 2, col: 2 },
+        objectives: ['Use at least 4 blocks', 'Visit at least 3 different squares', 'Have fun!']
+      })
+    ]
   );
 
   // ---- Quizzes ----
-  const insertQuiz = db.prepare(
-    'INSERT INTO quizzes (lesson_id, passing_score) VALUES (?, ?)'
-  );
-  const insertQuestion = db.prepare(
-    'INSERT INTO quiz_questions (quiz_id, question_text, options, order_index) VALUES (?, ?, ?, ?)'
-  );
-
   // Quiz for Lesson 1
-  const quiz1 = insertQuiz.run(1, 70);
-  insertQuestion.run(quiz1.lastInsertRowid, 'What is coding?', JSON.stringify([
-    { text: 'Playing video games', isCorrect: false },
-    { text: 'Giving step-by-step instructions to a computer', isCorrect: true },
-    { text: 'Drawing pictures', isCorrect: false },
-    { text: 'Reading books', isCorrect: false }
-  ]), 1);
-  insertQuestion.run(quiz1.lastInsertRowid, 'Why does the ORDER of instructions matter?', JSON.stringify([
-    { text: 'It doesn\'t matter at all', isCorrect: false },
-    { text: 'Because computers do things in the order you write them', isCorrect: true },
-    { text: 'Because computers are slow', isCorrect: false },
-    { text: 'Because coding is hard', isCorrect: false }
-  ]), 2);
-  insertQuestion.run(quiz1.lastInsertRowid, 'What is "sequencing" in coding?', JSON.stringify([
-    { text: 'Making things colorful', isCorrect: false },
-    { text: 'Putting instructions in the right order', isCorrect: true },
-    { text: 'Counting numbers', isCorrect: false },
-    { text: 'Turning off the computer', isCorrect: false }
-  ]), 3);
+  const quiz1 = await query(
+    'INSERT INTO quizzes (lesson_id, passing_score) VALUES ($1, $2) RETURNING id', [1, 70]
+  );
+  const q1Id = quiz1.rows[0].id;
+  await query(
+    'INSERT INTO quiz_questions (quiz_id, question_text, options, order_index) VALUES ($1, $2, $3, $4)',
+    [q1Id, 'What is coding?', JSON.stringify([
+      { text: 'Playing video games', isCorrect: false },
+      { text: 'Giving step-by-step instructions to a computer', isCorrect: true },
+      { text: 'Drawing pictures', isCorrect: false },
+      { text: 'Reading books', isCorrect: false }
+    ]), 1]
+  );
+  await query(
+    'INSERT INTO quiz_questions (quiz_id, question_text, options, order_index) VALUES ($1, $2, $3, $4)',
+    [q1Id, 'Why does the ORDER of instructions matter?', JSON.stringify([
+      { text: 'It doesn\'t matter at all', isCorrect: false },
+      { text: 'Because computers do things in the order you write them', isCorrect: true },
+      { text: 'Because computers are slow', isCorrect: false },
+      { text: 'Because coding is hard', isCorrect: false }
+    ]), 2]
+  );
+  await query(
+    'INSERT INTO quiz_questions (quiz_id, question_text, options, order_index) VALUES ($1, $2, $3, $4)',
+    [q1Id, 'What is "sequencing" in coding?', JSON.stringify([
+      { text: 'Making things colorful', isCorrect: false },
+      { text: 'Putting instructions in the right order', isCorrect: true },
+      { text: 'Counting numbers', isCorrect: false },
+      { text: 'Turning off the computer', isCorrect: false }
+    ]), 3]
+  );
 
   // Quiz for Lesson 2
-  const quiz2 = insertQuiz.run(2, 70);
-  insertQuestion.run(quiz2.lastInsertRowid, 'What does the "Move Forward" block do?', JSON.stringify([
-    { text: 'Makes the robot jump', isCorrect: false },
-    { text: 'Makes the robot walk one step ahead', isCorrect: true },
-    { text: 'Makes the robot spin around', isCorrect: false },
-    { text: 'Makes the robot stop', isCorrect: false }
-  ]), 1);
-  insertQuestion.run(quiz2.lastInsertRowid, 'If you want the robot to turn, which blocks can you use?', JSON.stringify([
-    { text: 'Move Forward', isCorrect: false },
-    { text: 'Turn Left or Turn Right', isCorrect: true },
-    { text: 'Pick Up', isCorrect: false },
-    { text: 'Stop', isCorrect: false }
-  ]), 2);
-  insertQuestion.run(quiz2.lastInsertRowid, 'How many steps does "Move Forward, Move Forward, Move Forward" make the robot take?', JSON.stringify([
-    { text: '1 step', isCorrect: false },
-    { text: '2 steps', isCorrect: false },
-    { text: '3 steps', isCorrect: true },
-    { text: '10 steps', isCorrect: false }
-  ]), 3);
+  const quiz2 = await query(
+    'INSERT INTO quizzes (lesson_id, passing_score) VALUES ($1, $2) RETURNING id', [2, 70]
+  );
+  const q2Id = quiz2.rows[0].id;
+  await query(
+    'INSERT INTO quiz_questions (quiz_id, question_text, options, order_index) VALUES ($1, $2, $3, $4)',
+    [q2Id, 'What does the "Move Forward" block do?', JSON.stringify([
+      { text: 'Makes the robot jump', isCorrect: false },
+      { text: 'Makes the robot walk one step ahead', isCorrect: true },
+      { text: 'Makes the robot spin around', isCorrect: false },
+      { text: 'Makes the robot stop', isCorrect: false }
+    ]), 1]
+  );
+  await query(
+    'INSERT INTO quiz_questions (quiz_id, question_text, options, order_index) VALUES ($1, $2, $3, $4)',
+    [q2Id, 'If you want the robot to turn, which blocks can you use?', JSON.stringify([
+      { text: 'Move Forward', isCorrect: false },
+      { text: 'Turn Left or Turn Right', isCorrect: true },
+      { text: 'Pick Up', isCorrect: false },
+      { text: 'Stop', isCorrect: false }
+    ]), 2]
+  );
+  await query(
+    'INSERT INTO quiz_questions (quiz_id, question_text, options, order_index) VALUES ($1, $2, $3, $4)',
+    [q2Id, 'How many steps does "Move Forward, Move Forward, Move Forward" make the robot take?', JSON.stringify([
+      { text: '1 step', isCorrect: false },
+      { text: '2 steps', isCorrect: false },
+      { text: '3 steps', isCorrect: true },
+      { text: '10 steps', isCorrect: false }
+    ]), 3]
+  );
 
   // Quiz for Lesson 3
-  const quiz3 = insertQuiz.run(3, 70);
-  insertQuestion.run(quiz3.lastInsertRowid, 'What happens if you put coding steps in the wrong order?', JSON.stringify([
-    { text: 'Nothing, it works fine', isCorrect: false },
-    { text: 'The program might not work correctly', isCorrect: true },
-    { text: 'The computer breaks', isCorrect: false },
-    { text: 'The screen turns off', isCorrect: false }
-  ]), 1);
-  insertQuestion.run(quiz3.lastInsertRowid, 'Which is the correct order for making a sandwich?', JSON.stringify([
-    { text: 'Eat → Add filling → Get bread', isCorrect: false },
-    { text: 'Get bread → Add filling → Eat', isCorrect: true },
-    { text: 'Add filling → Get bread → Eat', isCorrect: false },
-    { text: 'Eat → Get bread → Add filling', isCorrect: false }
-  ]), 2);
+  const quiz3 = await query(
+    'INSERT INTO quizzes (lesson_id, passing_score) VALUES ($1, $2) RETURNING id', [3, 70]
+  );
+  const q3Id = quiz3.rows[0].id;
+  await query(
+    'INSERT INTO quiz_questions (quiz_id, question_text, options, order_index) VALUES ($1, $2, $3, $4)',
+    [q3Id, 'What happens if you put coding steps in the wrong order?', JSON.stringify([
+      { text: 'Nothing, it works fine', isCorrect: false },
+      { text: 'The program might not work correctly', isCorrect: true },
+      { text: 'The computer breaks', isCorrect: false },
+      { text: 'The screen turns off', isCorrect: false }
+    ]), 1]
+  );
+  await query(
+    'INSERT INTO quiz_questions (quiz_id, question_text, options, order_index) VALUES ($1, $2, $3, $4)',
+    [q3Id, 'Which is the correct order for making a sandwich?', JSON.stringify([
+      { text: 'Eat → Add filling → Get bread', isCorrect: false },
+      { text: 'Get bread → Add filling → Eat', isCorrect: true },
+      { text: 'Add filling → Get bread → Eat', isCorrect: false },
+      { text: 'Eat → Get bread → Add filling', isCorrect: false }
+    ]), 2]
+  );
 
   // Quiz for Lesson 4
-  const quiz4 = insertQuiz.run(4, 70);
-  insertQuestion.run(quiz4.lastInsertRowid, 'What is a LOOP in coding?', JSON.stringify([
-    { text: 'A type of food', isCorrect: false },
-    { text: 'A way to repeat actions multiple times', isCorrect: true },
-    { text: 'A bug in the code', isCorrect: false },
-    { text: 'A type of computer', isCorrect: false }
-  ]), 1);
-  insertQuestion.run(quiz4.lastInsertRowid, '"Repeat 5 times: Jump" — how many times will you jump?', JSON.stringify([
-    { text: '1 time', isCorrect: false },
-    { text: '3 times', isCorrect: false },
-    { text: '5 times', isCorrect: true },
-    { text: '10 times', isCorrect: false }
-  ]), 2);
-  insertQuestion.run(quiz4.lastInsertRowid, 'Why are loops useful?', JSON.stringify([
-    { text: 'They make code longer', isCorrect: false },
-    { text: 'They save time by not repeating the same instructions', isCorrect: true },
-    { text: 'They make the computer faster', isCorrect: false },
-    { text: 'They are not useful', isCorrect: false }
-  ]), 3);
+  const quiz4 = await query(
+    'INSERT INTO quizzes (lesson_id, passing_score) VALUES ($1, $2) RETURNING id', [4, 70]
+  );
+  const q4Id = quiz4.rows[0].id;
+  await query(
+    'INSERT INTO quiz_questions (quiz_id, question_text, options, order_index) VALUES ($1, $2, $3, $4)',
+    [q4Id, 'What is a LOOP in coding?', JSON.stringify([
+      { text: 'A type of food', isCorrect: false },
+      { text: 'A way to repeat actions multiple times', isCorrect: true },
+      { text: 'A bug in the code', isCorrect: false },
+      { text: 'A type of computer', isCorrect: false }
+    ]), 1]
+  );
+  await query(
+    'INSERT INTO quiz_questions (quiz_id, question_text, options, order_index) VALUES ($1, $2, $3, $4)',
+    [q4Id, '"Repeat 5 times: Jump" — how many times will you jump?', JSON.stringify([
+      { text: '1 time', isCorrect: false },
+      { text: '3 times', isCorrect: false },
+      { text: '5 times', isCorrect: true },
+      { text: '10 times', isCorrect: false }
+    ]), 2]
+  );
+  await query(
+    'INSERT INTO quiz_questions (quiz_id, question_text, options, order_index) VALUES ($1, $2, $3, $4)',
+    [q4Id, 'Why are loops useful?', JSON.stringify([
+      { text: 'They make code longer', isCorrect: false },
+      { text: 'They save time by not repeating the same instructions', isCorrect: true },
+      { text: 'They make the computer faster', isCorrect: false },
+      { text: 'They are not useful', isCorrect: false }
+    ]), 3]
+  );
 
   // Quiz for Lesson 5
-  const quiz5 = insertQuiz.run(5, 70);
-  insertQuestion.run(quiz5.lastInsertRowid, 'What comes next: 🔴🔵🔴🔵🔴❓', JSON.stringify([
-    { text: '🔴', isCorrect: false },
-    { text: '🔵', isCorrect: true },
-    { text: '🟢', isCorrect: false },
-    { text: '🟡', isCorrect: false }
-  ]), 1);
-  insertQuestion.run(quiz5.lastInsertRowid, 'A pattern is something that...', JSON.stringify([
-    { text: 'Happens randomly', isCorrect: false },
-    { text: 'Repeats in a predictable way', isCorrect: true },
-    { text: 'Only happens once', isCorrect: false },
-    { text: 'Is always the same color', isCorrect: false }
-  ]), 2);
+  const quiz5 = await query(
+    'INSERT INTO quizzes (lesson_id, passing_score) VALUES ($1, $2) RETURNING id', [5, 70]
+  );
+  const q5Id = quiz5.rows[0].id;
+  await query(
+    'INSERT INTO quiz_questions (quiz_id, question_text, options, order_index) VALUES ($1, $2, $3, $4)',
+    [q5Id, 'What comes next: 🔴🔵🔴🔵🔴❓', JSON.stringify([
+      { text: '🔴', isCorrect: false },
+      { text: '🔵', isCorrect: true },
+      { text: '🟢', isCorrect: false },
+      { text: '🟡', isCorrect: false }
+    ]), 1]
+  );
+  await query(
+    'INSERT INTO quiz_questions (quiz_id, question_text, options, order_index) VALUES ($1, $2, $3, $4)',
+    [q5Id, 'A pattern is something that...', JSON.stringify([
+      { text: 'Happens randomly', isCorrect: false },
+      { text: 'Repeats in a predictable way', isCorrect: true },
+      { text: 'Only happens once', isCorrect: false },
+      { text: 'Is always the same color', isCorrect: false }
+    ]), 2]
+  );
 
   // Quiz for Lesson 6
-  const quiz6 = insertQuiz.run(6, 70);
-  insertQuestion.run(quiz6.lastInsertRowid, 'What is a CONDITION (If-statement) in coding?', JSON.stringify([
-    { text: 'A way to make the computer sing', isCorrect: false },
-    { text: 'A way for the computer to make a decision based on something being true or false', isCorrect: true },
-    { text: 'A type of loop', isCorrect: false },
-    { text: 'A way to stop the program', isCorrect: false }
-  ]), 1);
-  insertQuestion.run(quiz6.lastInsertRowid, '"If it\'s raining, take an umbrella." What is the condition?', JSON.stringify([
-    { text: 'Take an umbrella', isCorrect: false },
-    { text: 'It\'s raining', isCorrect: true },
-    { text: 'Go outside', isCorrect: false },
-    { text: 'Umbrella', isCorrect: false }
-  ]), 2);
-  insertQuestion.run(quiz6.lastInsertRowid, '"If wall ahead, turn right." When does the robot turn right?', JSON.stringify([
-    { text: 'Always', isCorrect: false },
-    { text: 'Never', isCorrect: false },
-    { text: 'Only when there is a wall ahead', isCorrect: true },
-    { text: 'Only when it wants to', isCorrect: false }
-  ]), 3);
+  const quiz6 = await query(
+    'INSERT INTO quizzes (lesson_id, passing_score) VALUES ($1, $2) RETURNING id', [6, 70]
+  );
+  const q6Id = quiz6.rows[0].id;
+  await query(
+    'INSERT INTO quiz_questions (quiz_id, question_text, options, order_index) VALUES ($1, $2, $3, $4)',
+    [q6Id, 'What is a CONDITION (If-statement) in coding?', JSON.stringify([
+      { text: 'A way to make the computer sing', isCorrect: false },
+      { text: 'A way for the computer to make a decision based on something being true or false', isCorrect: true },
+      { text: 'A type of loop', isCorrect: false },
+      { text: 'A way to stop the program', isCorrect: false }
+    ]), 1]
+  );
+  await query(
+    'INSERT INTO quiz_questions (quiz_id, question_text, options, order_index) VALUES ($1, $2, $3, $4)',
+    [q6Id, '"If it\'s raining, take an umbrella." What is the condition?', JSON.stringify([
+      { text: 'Take an umbrella', isCorrect: false },
+      { text: 'It\'s raining', isCorrect: true },
+      { text: 'Go outside', isCorrect: false },
+      { text: 'Umbrella', isCorrect: false }
+    ]), 2]
+  );
+  await query(
+    'INSERT INTO quiz_questions (quiz_id, question_text, options, order_index) VALUES ($1, $2, $3, $4)',
+    [q6Id, '"If wall ahead, turn right." When does the robot turn right?', JSON.stringify([
+      { text: 'Always', isCorrect: false },
+      { text: 'Never', isCorrect: false },
+      { text: 'Only when there is a wall ahead', isCorrect: true },
+      { text: 'Only when it wants to', isCorrect: false }
+    ]), 3]
+  );
 
   // Quiz for Lesson 7
-  const quiz7 = insertQuiz.run(7, 70);
-  insertQuestion.run(quiz7.lastInsertRowid, 'What is a VARIABLE?', JSON.stringify([
-    { text: 'A type of game', isCorrect: false },
-    { text: 'A labeled box that stores information', isCorrect: true },
-    { text: 'A special computer key', isCorrect: false },
-    { text: 'A type of loop', isCorrect: false }
-  ]), 1);
-  insertQuestion.run(quiz7.lastInsertRowid, 'If score = 5, and you add 3, what is score now?', JSON.stringify([
-    { text: '3', isCorrect: false },
-    { text: '5', isCorrect: false },
-    { text: '8', isCorrect: true },
-    { text: '15', isCorrect: false }
-  ]), 2);
+  const quiz7 = await query(
+    'INSERT INTO quizzes (lesson_id, passing_score) VALUES ($1, $2) RETURNING id', [7, 70]
+  );
+  const q7Id = quiz7.rows[0].id;
+  await query(
+    'INSERT INTO quiz_questions (quiz_id, question_text, options, order_index) VALUES ($1, $2, $3, $4)',
+    [q7Id, 'What is a VARIABLE?', JSON.stringify([
+      { text: 'A type of game', isCorrect: false },
+      { text: 'A labeled box that stores information', isCorrect: true },
+      { text: 'A special computer key', isCorrect: false },
+      { text: 'A type of loop', isCorrect: false }
+    ]), 1]
+  );
+  await query(
+    'INSERT INTO quiz_questions (quiz_id, question_text, options, order_index) VALUES ($1, $2, $3, $4)',
+    [q7Id, 'If score = 5, and you add 3, what is score now?', JSON.stringify([
+      { text: '3', isCorrect: false },
+      { text: '5', isCorrect: false },
+      { text: '8', isCorrect: true },
+      { text: '15', isCorrect: false }
+    ]), 2]
+  );
 
   // Quiz for Lesson 8
-  const quiz8 = insertQuiz.run(8, 70);
-  insertQuestion.run(quiz8.lastInsertRowid, 'Which coding concepts can be COMBINED together?', JSON.stringify([
-    { text: 'Only loops', isCorrect: false },
-    { text: 'Only conditions', isCorrect: false },
-    { text: 'Sequences, loops, conditions, and variables — all of them!', isCorrect: true },
-    { text: 'None of them', isCorrect: false }
-  ]), 1);
-  insertQuestion.run(quiz8.lastInsertRowid, 'What does this program do: "Set coins=0, Repeat 3 times: Move and Pick up"?', JSON.stringify([
-    { text: 'Moves once and picks up one coin', isCorrect: false },
-    { text: 'Moves 3 times and picks up 3 coins', isCorrect: true },
-    { text: 'Does nothing', isCorrect: false },
-    { text: 'Picks up 10 coins', isCorrect: false }
-  ]), 2);
+  const quiz8 = await query(
+    'INSERT INTO quizzes (lesson_id, passing_score) VALUES ($1, $2) RETURNING id', [8, 70]
+  );
+  const q8Id = quiz8.rows[0].id;
+  await query(
+    'INSERT INTO quiz_questions (quiz_id, question_text, options, order_index) VALUES ($1, $2, $3, $4)',
+    [q8Id, 'Which coding concepts can be COMBINED together?', JSON.stringify([
+      { text: 'Only loops', isCorrect: false },
+      { text: 'Only conditions', isCorrect: false },
+      { text: 'Sequences, loops, conditions, and variables — all of them!', isCorrect: true },
+      { text: 'None of them', isCorrect: false }
+    ]), 1]
+  );
+  await query(
+    'INSERT INTO quiz_questions (quiz_id, question_text, options, order_index) VALUES ($1, $2, $3, $4)',
+    [q8Id, 'What does this program do: "Set coins=0, Repeat 3 times: Move and Pick up"?', JSON.stringify([
+      { text: 'Moves once and picks up one coin', isCorrect: false },
+      { text: 'Moves 3 times and picks up 3 coins', isCorrect: true },
+      { text: 'Does nothing', isCorrect: false },
+      { text: 'Picks up 10 coins', isCorrect: false }
+    ]), 2]
+  );
 
   // Quiz for Lesson 9
-  const quiz9 = insertQuiz.run(9, 60);
-  insertQuestion.run(quiz9.lastInsertRowid, 'What is the MOST important skill in coding?', JSON.stringify([
-    { text: 'Typing really fast', isCorrect: false },
-    { text: 'Problem-solving and logical thinking', isCorrect: true },
-    { text: 'Having the newest computer', isCorrect: false },
-    { text: 'Memorizing everything', isCorrect: false }
-  ]), 1);
-  insertQuestion.run(quiz9.lastInsertRowid, 'What should you do when your program doesn\'t work?', JSON.stringify([
-    { text: 'Give up', isCorrect: false },
-    { text: 'Buy a new computer', isCorrect: false },
-    { text: 'Try to find the problem, fix it, and try again', isCorrect: true },
-    { text: 'Ask someone else to do it', isCorrect: false }
-  ]), 2);
+  const quiz9 = await query(
+    'INSERT INTO quizzes (lesson_id, passing_score) VALUES ($1, $2) RETURNING id', [9, 60]
+  );
+  const q9Id = quiz9.rows[0].id;
+  await query(
+    'INSERT INTO quiz_questions (quiz_id, question_text, options, order_index) VALUES ($1, $2, $3, $4)',
+    [q9Id, 'What is the MOST important skill in coding?', JSON.stringify([
+      { text: 'Typing really fast', isCorrect: false },
+      { text: 'Problem-solving and logical thinking', isCorrect: true },
+      { text: 'Having the newest computer', isCorrect: false },
+      { text: 'Memorizing everything', isCorrect: false }
+    ]), 1]
+  );
+  await query(
+    'INSERT INTO quiz_questions (quiz_id, question_text, options, order_index) VALUES ($1, $2, $3, $4)',
+    [q9Id, 'What should you do when your program doesn\'t work?', JSON.stringify([
+      { text: 'Give up', isCorrect: false },
+      { text: 'Buy a new computer', isCorrect: false },
+      { text: 'Try to find the problem, fix it, and try again', isCorrect: true },
+      { text: 'Ask someone else to do it', isCorrect: false }
+    ]), 2]
+  );
 
   // ---- Badges ----
-  const insertBadge = db.prepare(
-    'INSERT INTO badges (name, description, icon_emoji, criteria) VALUES (?, ?, ?, ?)'
+  await query(
+    `INSERT INTO badges (name, description, icon_emoji, criteria) VALUES
+      ('First Steps', 'Complete your very first lesson!', '👣', 'complete_first_lesson'),
+      ('Star Student', 'Complete all lessons in Star Island!', '🌟', 'complete_level_1'),
+      ('Rocket Rider', 'Complete all lessons in Rocket Valley!', '🚀', 'complete_level_2'),
+      ('Champion Coder', 'Complete all lessons in Champion Peak!', '🏆', 'complete_level_3'),
+      ('Quiz Whiz', 'Score 100% on any quiz!', '🧠', 'perfect_quiz'),
+      ('Streak Star', 'Complete 3 lessons in a row!', '🔥', 'streak_3'),
+      ('Loop Master', 'Complete the loops lesson!', '🔄', 'complete_lesson_4'),
+      ('Decision Maker', 'Complete the conditions lesson!', '🤔', 'complete_lesson_6'),
+      ('Code Creator', 'Complete the Build Your Own lesson!', '🎨', 'complete_lesson_9'),
+      ('All Star', 'Complete every lesson on the platform!', '💫', 'complete_all')`
   );
-  insertBadge.run('First Steps', 'Complete your very first lesson!', '👣', 'complete_first_lesson');
-  insertBadge.run('Star Student', 'Complete all lessons in Star Island!', '🌟', 'complete_level_1');
-  insertBadge.run('Rocket Rider', 'Complete all lessons in Rocket Valley!', '🚀', 'complete_level_2');
-  insertBadge.run('Champion Coder', 'Complete all lessons in Champion Peak!', '🏆', 'complete_level_3');
-  insertBadge.run('Quiz Whiz', 'Score 100% on any quiz!', '🧠', 'perfect_quiz');
-  insertBadge.run('Streak Star', 'Complete 3 lessons in a row!', '🔥', 'streak_3');
-  insertBadge.run('Loop Master', 'Complete the loops lesson!', '🔄', 'complete_lesson_4');
-  insertBadge.run('Decision Maker', 'Complete the conditions lesson!', '🤔', 'complete_lesson_6');
-  insertBadge.run('Code Creator', 'Complete the Build Your Own lesson!', '🎨', 'complete_lesson_9');
-  insertBadge.run('All Star', 'Complete every lesson on the platform!', '💫', 'complete_all');
 
-  // ---- Default Admin User ----
+  // ---- Default Users ----
   const adminPasswordHash = bcrypt.hashSync('admin123', 10);
-  const insertUser = db.prepare(
-    'INSERT INTO users (username, email, password_hash, role, display_name, avatar_url) VALUES (?, ?, ?, ?, ?, ?)'
-  );
-  insertUser.run('admin', 'admin@codequest.com', adminPasswordHash, 'admin', 'Admin', '👑');
-
-  // Create a demo learner
   const learnerPasswordHash = bcrypt.hashSync('learn123', 10);
-  insertUser.run('coder_kid', 'kid@codequest.com', learnerPasswordHash, 'learner', 'Coder Kid', '🤖');
-
-  // Create a demo parent
   const parentPasswordHash = bcrypt.hashSync('parent123', 10);
-  insertUser.run('parent1', 'parent@codequest.com', parentPasswordHash, 'parent', 'Parent', '👨‍👩‍👧');
-
-  // Link child to parent
-  db.prepare('UPDATE users SET parent_id = 3 WHERE id = 2').run();
-
-  // Create a demo teacher
   const teacherPasswordHash = bcrypt.hashSync('teach123', 10);
-  insertUser.run('teacher1', 'teacher@codequest.com', teacherPasswordHash, 'teacher', 'Ms. Code', '👩‍🏫');
 
-  // Link child to teacher
-  db.prepare('UPDATE users SET teacher_id = 4 WHERE id = 2').run();
+  await query(
+    `INSERT INTO users (username, email, password_hash, role, display_name, avatar_url) VALUES ($1, $2, $3, $4, $5, $6)`,
+    ['admin', 'admin@codequest.com', adminPasswordHash, 'admin', 'Admin', '👑']
+  );
+  await query(
+    `INSERT INTO users (username, email, password_hash, role, display_name, avatar_url) VALUES ($1, $2, $3, $4, $5, $6)`,
+    ['coder_kid', 'kid@codequest.com', learnerPasswordHash, 'learner', 'Coder Kid', '🤖']
+  );
+  await query(
+    `INSERT INTO users (username, email, password_hash, role, display_name, avatar_url) VALUES ($1, $2, $3, $4, $5, $6)`,
+    ['parent1', 'parent@codequest.com', parentPasswordHash, 'parent', 'Parent', '👨‍👩‍👧']
+  );
+  await query(
+    `INSERT INTO users (username, email, password_hash, role, display_name, avatar_url) VALUES ($1, $2, $3, $4, $5, $6)`,
+    ['teacher1', 'teacher@codequest.com', teacherPasswordHash, 'teacher', 'Ms. Code', '👩‍🏫']
+  );
+
+  // Link child to parent and teacher
+  await query('UPDATE users SET parent_id = (SELECT id FROM users WHERE username = $1) WHERE username = $2', ['parent1', 'coder_kid']);
+  await query('UPDATE users SET teacher_id = (SELECT id FROM users WHERE username = $1) WHERE username = $2', ['teacher1', 'coder_kid']);
 
   console.log('✅ Database seeded with levels, lessons, quizzes, badges, and demo users');
 }

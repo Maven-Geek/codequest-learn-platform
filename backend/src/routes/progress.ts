@@ -3,27 +3,26 @@
 // ============================================================
 
 import { Router, Request, Response } from 'express';
-import { getDb } from '../database';
+import { query } from '../database';
 import { authMiddleware, requireRole } from '../middleware/auth';
 
 const router = Router();
 
 // GET /api/progress — Get current user's progress
-router.get('/', authMiddleware, (req: Request, res: Response) => {
+router.get('/', authMiddleware, async (req: Request, res: Response) => {
   try {
-    const db = getDb();
     const userId = req.user!.userId;
 
-    const progress = db.prepare(`
+    const result = await query(`
       SELECT up.*, les.title as lesson_title, lev.title as level_title
       FROM user_progress up
       JOIN lessons les ON up.lesson_id = les.id
       JOIN levels lev ON les.level_id = lev.id
-      WHERE up.user_id = ?
+      WHERE up.user_id = $1
       ORDER BY les.level_id, les.order_index
-    `).all(userId);
+    `, [userId]);
 
-    res.json({ success: true, data: progress });
+    res.json({ success: true, data: result.rows });
   } catch (error: any) {
     console.error('Get progress error:', error);
     res.status(500).json({ success: false, error: 'Failed to fetch progress' });
@@ -31,12 +30,11 @@ router.get('/', authMiddleware, (req: Request, res: Response) => {
 });
 
 // GET /api/progress/summary — Get current user's progress summary
-router.get('/summary', authMiddleware, (req: Request, res: Response) => {
+router.get('/summary', authMiddleware, async (req: Request, res: Response) => {
   try {
-    const db = getDb();
     const userId = req.user!.userId;
 
-    const summary = buildProgressSummary(db, userId);
+    const summary = await buildProgressSummary(userId);
 
     res.json({ success: true, data: summary });
   } catch (error: any) {
@@ -46,9 +44,8 @@ router.get('/summary', authMiddleware, (req: Request, res: Response) => {
 });
 
 // POST /api/progress/complete — Mark activity as complete (before quiz)
-router.post('/complete', authMiddleware, (req: Request, res: Response) => {
+router.post('/complete', authMiddleware, async (req: Request, res: Response) => {
   try {
-    const db = getDb();
     const userId = req.user!.userId;
     const { lesson_id } = req.body;
 
@@ -58,14 +55,16 @@ router.post('/complete', authMiddleware, (req: Request, res: Response) => {
     }
 
     // Create or update progress - mark activity as done but not fully complete until quiz passed
-    const existing = db.prepare(
-      'SELECT id FROM user_progress WHERE user_id = ? AND lesson_id = ?'
-    ).get(userId, lesson_id) as any;
+    const existing = await query(
+      'SELECT id FROM user_progress WHERE user_id = $1 AND lesson_id = $2',
+      [userId, lesson_id]
+    );
 
-    if (!existing) {
-      db.prepare(
-        'INSERT INTO user_progress (user_id, lesson_id, completed, points_earned) VALUES (?, ?, 0, 5)'
-      ).run(userId, lesson_id);
+    if (existing.rows.length === 0) {
+      await query(
+        'INSERT INTO user_progress (user_id, lesson_id, completed, points_earned) VALUES ($1, $2, false, 5)',
+        [userId, lesson_id]
+      );
     }
 
     res.json({ success: true, data: { message: 'Activity progress saved' } });
@@ -76,15 +75,15 @@ router.post('/complete', authMiddleware, (req: Request, res: Response) => {
 });
 
 // GET /api/progress/report/:userId — Parent/Teacher: get child's report
-router.get('/report/:userId', authMiddleware, (req: Request, res: Response) => {
+router.get('/report/:userId', authMiddleware, async (req: Request, res: Response) => {
   try {
-    const db = getDb();
     const currentUser = req.user!;
-    const targetUserId = parseInt(req.params.userId);
+    const targetUserId = parseInt(req.params.userId as string);
 
     // Check permissions: admin, or parent/teacher of the child
     if (currentUser.role !== 'admin') {
-      const targetUser = db.prepare('SELECT * FROM users WHERE id = ?').get(targetUserId) as any;
+      const targetResult = await query('SELECT * FROM users WHERE id = $1', [targetUserId]);
+      const targetUser = targetResult.rows[0] as any;
       if (!targetUser) {
         res.status(404).json({ success: false, error: 'User not found' });
         return;
@@ -99,44 +98,46 @@ router.get('/report/:userId', authMiddleware, (req: Request, res: Response) => {
       }
     }
 
-    const user = db.prepare(
-      'SELECT id, username, email, role, display_name, avatar_url, created_at FROM users WHERE id = ?'
-    ).get(targetUserId) as any;
+    const userResult = await query(
+      'SELECT id, username, email, role, display_name, avatar_url, created_at FROM users WHERE id = $1',
+      [targetUserId]
+    );
+    const user = userResult.rows[0];
 
     if (!user) {
       res.status(404).json({ success: false, error: 'User not found' });
       return;
     }
 
-    const summary = buildProgressSummary(db, targetUserId);
+    const summary = await buildProgressSummary(targetUserId);
 
-    const progress = db.prepare(`
+    const progressResult = await query(`
       SELECT up.*, les.title as lesson_title, lev.title as level_title
       FROM user_progress up
       JOIN lessons les ON up.lesson_id = les.id
       JOIN levels lev ON les.level_id = lev.id
-      WHERE up.user_id = ?
+      WHERE up.user_id = $1
       ORDER BY les.level_id, les.order_index
-    `).all(targetUserId);
+    `, [targetUserId]);
 
-    const badges = db.prepare(`
+    const badgesResult = await query(`
       SELECT b.*, ub.earned_at
       FROM user_badges ub
       JOIN badges b ON ub.badge_id = b.id
-      WHERE ub.user_id = ?
+      WHERE ub.user_id = $1
       ORDER BY ub.earned_at DESC
-    `).all(targetUserId);
+    `, [targetUserId]);
 
     // Determine areas needing improvement
-    const areas = findAreasNeedingImprovement(db, targetUserId);
+    const areas = await findAreasNeedingImprovement(targetUserId);
 
     res.json({
       success: true,
       data: {
         user,
         summary,
-        progress,
-        badges,
+        progress: progressResult.rows,
+        badges: badgesResult.rows,
         areas_needing_improvement: areas
       }
     });
@@ -146,60 +147,63 @@ router.get('/report/:userId', authMiddleware, (req: Request, res: Response) => {
   }
 });
 
-function buildProgressSummary(db: any, userId: number): any {
-  const totalLessons = db.prepare('SELECT COUNT(*) as count FROM lessons WHERE is_published = 1').get() as any;
-  const completedLessons = db.prepare('SELECT COUNT(*) as count FROM user_progress WHERE user_id = ? AND completed = 1').get(userId) as any;
-  const totalPoints = db.prepare('SELECT COALESCE(SUM(points_earned), 0) as total FROM user_progress WHERE user_id = ?').get(userId) as any;
-  const badgesEarned = db.prepare('SELECT COUNT(*) as count FROM user_badges WHERE user_id = ?').get(userId) as any;
-  const avgScore = db.prepare('SELECT COALESCE(AVG(quiz_score), 0) as avg FROM user_progress WHERE user_id = ? AND quiz_score IS NOT NULL').get(userId) as any;
+async function buildProgressSummary(userId: number): Promise<any> {
+  const totalLessons = await query('SELECT COUNT(*) as count FROM lessons WHERE is_published = true');
+  const completedLessons = await query('SELECT COUNT(*) as count FROM user_progress WHERE user_id = $1 AND completed = true', [userId]);
+  const totalPoints = await query('SELECT COALESCE(SUM(points_earned), 0) as total FROM user_progress WHERE user_id = $1', [userId]);
+  const badgesEarned = await query('SELECT COUNT(*) as count FROM user_badges WHERE user_id = $1', [userId]);
+  const avgScore = await query('SELECT COALESCE(AVG(quiz_score), 0) as avg FROM user_progress WHERE user_id = $1 AND quiz_score IS NOT NULL', [userId]);
 
   // Find current level
-  const currentProgress = db.prepare(`
+  const currentProgress = await query(`
     SELECT lev.title FROM user_progress up
     JOIN lessons les ON up.lesson_id = les.id
     JOIN levels lev ON les.level_id = lev.id
-    WHERE up.user_id = ?
+    WHERE up.user_id = $1
     ORDER BY les.level_id DESC, les.order_index DESC
     LIMIT 1
-  `).get(userId) as any;
+  `, [userId]);
+
+  const total = parseInt(totalLessons.rows[0].count);
+  const completed = parseInt(completedLessons.rows[0].count);
 
   return {
-    total_lessons: totalLessons.count,
-    completed_lessons: completedLessons.count,
-    total_points: totalPoints.total,
-    current_level: currentProgress?.title || 'Star Island',
-    badges_earned: badgesEarned.count,
-    average_quiz_score: Math.round(avgScore.avg),
-    completion_percentage: totalLessons.count > 0 ? Math.round((completedLessons.count / totalLessons.count) * 100) : 0
+    total_lessons: total,
+    completed_lessons: completed,
+    total_points: parseInt(totalPoints.rows[0].total),
+    current_level: currentProgress.rows[0]?.title || 'Star Island',
+    badges_earned: parseInt(badgesEarned.rows[0].count),
+    average_quiz_score: Math.round(parseFloat(avgScore.rows[0].avg)),
+    completion_percentage: total > 0 ? Math.round((completed / total) * 100) : 0
   };
 }
 
-function findAreasNeedingImprovement(db: any, userId: number): string[] {
+async function findAreasNeedingImprovement(userId: number): Promise<string[]> {
   const areas: string[] = [];
 
   // Find lessons with failed quizzes
-  const failedQuizzes = db.prepare(`
+  const failedQuizzes = await query(`
     SELECT les.title, up.quiz_score
     FROM user_progress up
     JOIN lessons les ON up.lesson_id = les.id
-    WHERE up.user_id = ? AND up.quiz_passed = 0 AND up.quiz_score IS NOT NULL
-  `).all(userId) as any[];
+    WHERE up.user_id = $1 AND up.quiz_passed = false AND up.quiz_score IS NOT NULL
+  `, [userId]);
 
-  for (const fq of failedQuizzes) {
+  for (const fq of failedQuizzes.rows as any[]) {
     areas.push(`Needs review: ${fq.title} (scored ${fq.quiz_score}%)`);
   }
 
   // Find levels not started
-  const unstarted = db.prepare(`
+  const unstarted = await query(`
     SELECT lev.title FROM levels lev
     WHERE NOT EXISTS (
       SELECT 1 FROM user_progress up
       JOIN lessons les ON up.lesson_id = les.id
-      WHERE les.level_id = lev.id AND up.user_id = ?
+      WHERE les.level_id = lev.id AND up.user_id = $1
     )
-  `).all(userId) as any[];
+  `, [userId]);
 
-  for (const u of unstarted) {
+  for (const u of unstarted.rows as any[]) {
     areas.push(`Not started: ${u.title}`);
   }
 

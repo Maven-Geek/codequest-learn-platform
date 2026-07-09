@@ -4,7 +4,7 @@
 
 import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
-import { getDb } from '../database';
+import { query } from '../database';
 import { generateToken } from '../middleware/auth';
 import type { RegisterRequest, LoginRequest, User } from '../../shared/src/types';
 
@@ -20,23 +20,21 @@ router.post('/register', async (req: Request, res: Response) => {
       return;
     }
 
-    const db = getDb();
-
     // Check if username already exists
-    const existing = db.prepare('SELECT id FROM users WHERE username = ?').get(username);
-    if (existing) {
+    const existing = await query('SELECT id FROM users WHERE username = $1', [username]);
+    if (existing.rows.length > 0) {
       res.status(409).json({ success: false, error: 'Username already taken' });
       return;
     }
 
     const password_hash = bcrypt.hashSync(password, 10);
 
-    const result = db.prepare(
-      'INSERT INTO users (username, email, password_hash, role, display_name, avatar_url, parent_id, teacher_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-    ).run(username, email, password_hash, role, display_name, avatar_url || '🤖', parent_id || null, teacher_id || null);
+    const result = await query(
+      'INSERT INTO users (username, email, password_hash, role, display_name, avatar_url, parent_id, teacher_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id, username, email, role, display_name, avatar_url, parent_id, teacher_id, created_at',
+      [username, email, password_hash, role, display_name, avatar_url || '🤖', parent_id || null, teacher_id || null]
+    );
 
-    const user = db.prepare('SELECT id, username, email, role, display_name, avatar_url, parent_id, teacher_id, created_at FROM users WHERE id = ?').get(result.lastInsertRowid) as User;
-
+    const user = result.rows[0] as User;
     const token = generateToken({ userId: user.id, username: user.username, role: user.role });
 
     res.status(201).json({ success: true, data: { token, user } });
@@ -56,11 +54,8 @@ router.post('/login', async (req: Request, res: Response) => {
       return;
     }
 
-    const db = getDb();
-
-    const user = db.prepare(
-      'SELECT * FROM users WHERE username = ?'
-    ).get(username) as any;
+    const result = await query('SELECT * FROM users WHERE username = $1', [username]);
+    const user = result.rows[0] as any;
 
     if (!user) {
       res.status(401).json({ success: false, error: 'Invalid username or password' });
