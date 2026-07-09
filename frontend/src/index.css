@@ -1958,6 +1958,10 @@ textarea.form-input {
   66% { transform: translateY(10px) rotate(-2deg); }
 }
 
+/* ---- Mobile Menu (hidden on desktop) ---- */
+.mobile-menu-btn { display: none; }
+.sidebar-overlay { display: none; }
+
 /* ============================================================
    RESPONSIVE
    ============================================================ */
@@ -1971,10 +1975,47 @@ textarea.form-input {
 
   .sidebar.open {
     transform: translateX(0);
+    box-shadow: var(--shadow-3);
+  }
+
+  .sidebar-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 90;
+    backdrop-filter: blur(2px);
+  }
+
+  .mobile-menu-btn {
+    display: flex;
+    position: fixed;
+    bottom: var(--space-lg);
+    right: var(--space-lg);
+    z-index: 105;
+    background: var(--color-primary);
+    color: white;
+    border: none;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    box-shadow: var(--shadow-hover);
+    cursor: pointer;
+    transition: transform var(--transition-bounce), background var(--transition-fast);
+  }
+
+  .mobile-menu-btn:active {
+    transform: scale(0.9);
   }
 
   .main-content {
     margin-left: 0;
+    padding-bottom: 80px; /* space for FAB */
   }
 
   .sidebar-hamburger {
