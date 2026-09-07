@@ -23,9 +23,25 @@ function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode;
 
   if (loading) return <div className="loading-spinner">🚀</div>;
   if (!isAuthenticated) return <Navigate to="/login" />;
-  if (allowedRoles && user && !allowedRoles.includes(user.role)) return <Navigate to="/" />;
+  if (allowedRoles && user && !allowedRoles.includes(user.role)) return <Navigate to={getDefaultRoute(user.role)} />;
 
   return <>{children}</>;
+}
+
+// Role-aware default route
+function getDefaultRoute(role: string): string {
+  switch (role) {
+    case 'learner': return '/learn';
+    case 'parent': return '/parent';
+    case 'teacher': return '/teacher';
+    case 'admin': return '/admin';
+    default: return '/learn';
+  }
+}
+
+function DefaultRedirect() {
+  const { user } = useAuth();
+  return <Navigate to={getDefaultRoute(user?.role || 'learner')} />;
 }
 
 export default function App() {
@@ -47,15 +63,17 @@ export default function App() {
         <div className="main-content">
           <Navbar />
           <Routes>
-            {/* Learner */}
-            <Route path="/learn" element={<ProtectedRoute><LevelMapPage /></ProtectedRoute>} />
-            <Route path="/lesson/:id" element={<ProtectedRoute><LessonPage /></ProtectedRoute>} />
+            {/* Learner only — non-learners cannot take tasks */}
+            <Route path="/learn" element={<ProtectedRoute allowedRoles={['learner']}><LevelMapPage /></ProtectedRoute>} />
+            <Route path="/lesson/:id" element={<ProtectedRoute allowedRoles={['learner']}><LessonPage /></ProtectedRoute>} />
+
+            {/* Shared */}
             <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
 
-            {/* Parent */}
+            {/* Parent — monitoring only */}
             <Route path="/parent" element={<ProtectedRoute allowedRoles={['parent']}><ParentDashboard /></ProtectedRoute>} />
 
-            {/* Teacher */}
+            {/* Teacher — monitoring only */}
             <Route path="/teacher" element={<ProtectedRoute allowedRoles={['teacher']}><TeacherDashboard /></ProtectedRoute>} />
 
             {/* Admin */}
@@ -63,9 +81,9 @@ export default function App() {
             <Route path="/admin/lessons" element={<ProtectedRoute allowedRoles={['admin']}><LessonManager /></ProtectedRoute>} />
             <Route path="/admin/users" element={<ProtectedRoute allowedRoles={['admin']}><UserManager /></ProtectedRoute>} />
 
-            {/* Default redirect */}
-            <Route path="/" element={<Navigate to="/learn" />} />
-            <Route path="*" element={<Navigate to="/learn" />} />
+            {/* Role-aware default redirect */}
+            <Route path="/" element={<DefaultRedirect />} />
+            <Route path="*" element={<DefaultRedirect />} />
           </Routes>
         </div>
       </div>

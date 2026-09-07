@@ -67,6 +67,16 @@ export const api = {
   deleteUser: (id: number) => request<any>(`/users/${id}`, { method: 'DELETE' }),
   getStats: () => request<any>('/users/stats'),
 
+  // Assignment — Admin: bulk assign/unassign students to teachers/parents
+  assignTeacher: (teacherId: number, studentIds: number[]) =>
+    request<any>('/users/assign-teacher', { method: 'POST', body: JSON.stringify({ teacher_id: teacherId, student_ids: studentIds }) }),
+  assignParent: (parentId: number, studentIds: number[]) =>
+    request<any>('/users/assign-parent', { method: 'POST', body: JSON.stringify({ parent_id: parentId, student_ids: studentIds }) }),
+  unassignTeacher: (studentIds: number[]) =>
+    request<any>('/users/unassign-teacher', { method: 'POST', body: JSON.stringify({ student_ids: studentIds }) }),
+  unassignParent: (studentIds: number[]) =>
+    request<any>('/users/unassign-parent', { method: 'POST', body: JSON.stringify({ student_ids: studentIds }) }),
+
   // Badges
   getBadges: () => request<any>('/badges'),
   getEarnedBadges: () => request<any>('/badges/earned'),

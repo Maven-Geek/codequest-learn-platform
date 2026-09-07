@@ -181,4 +181,116 @@ router.get('/stats', authMiddleware, requireRole('admin'), async (req: Request, 
   }
 });
 
+// POST /api/users/assign-teacher — Admin: bulk assign students to a teacher
+router.post('/assign-teacher', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
+  try {
+    const { teacher_id, student_ids } = req.body;
+
+    if (!teacher_id || !Array.isArray(student_ids)) {
+      res.status(400).json({ success: false, error: 'teacher_id and student_ids[] required' });
+      return;
+    }
+
+    // Verify teacher exists and has teacher role
+    const teacher = await query('SELECT id FROM users WHERE id = $1 AND role = $2', [teacher_id, 'teacher']);
+    if (teacher.rows.length === 0) {
+      res.status(404).json({ success: false, error: 'Teacher not found' });
+      return;
+    }
+
+    // Update all specified learners
+    if (student_ids.length > 0) {
+      const placeholders = student_ids.map((_, i) => `$${i + 2}`).join(', ');
+      await query(
+        `UPDATE users SET teacher_id = $1 WHERE id IN (${placeholders}) AND role = 'learner'`,
+        [teacher_id, ...student_ids]
+      );
+    }
+
+    res.json({ success: true, data: { message: `Assigned ${student_ids.length} students to teacher` } });
+  } catch (error: any) {
+    console.error('Assign teacher error:', error);
+    res.status(500).json({ success: false, error: 'Failed to assign teacher' });
+  }
+});
+
+// POST /api/users/assign-parent — Admin: bulk assign children to a parent
+router.post('/assign-parent', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
+  try {
+    const { parent_id, student_ids } = req.body;
+
+    if (!parent_id || !Array.isArray(student_ids)) {
+      res.status(400).json({ success: false, error: 'parent_id and student_ids[] required' });
+      return;
+    }
+
+    // Verify parent exists and has parent role
+    const parent = await query('SELECT id FROM users WHERE id = $1 AND role = $2', [parent_id, 'parent']);
+    if (parent.rows.length === 0) {
+      res.status(404).json({ success: false, error: 'Parent not found' });
+      return;
+    }
+
+    // Update all specified learners
+    if (student_ids.length > 0) {
+      const placeholders = student_ids.map((_, i) => `$${i + 2}`).join(', ');
+      await query(
+        `UPDATE users SET parent_id = $1 WHERE id IN (${placeholders}) AND role = 'learner'`,
+        [parent_id, ...student_ids]
+      );
+    }
+
+    res.json({ success: true, data: { message: `Assigned ${student_ids.length} children to parent` } });
+  } catch (error: any) {
+    console.error('Assign parent error:', error);
+    res.status(500).json({ success: false, error: 'Failed to assign parent' });
+  }
+});
+
+// POST /api/users/unassign-teacher — Admin: remove teacher assignment from students
+router.post('/unassign-teacher', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
+  try {
+    const { student_ids } = req.body;
+
+    if (!Array.isArray(student_ids) || student_ids.length === 0) {
+      res.status(400).json({ success: false, error: 'student_ids[] required' });
+      return;
+    }
+
+    const placeholders = student_ids.map((_, i) => `$${i + 1}`).join(', ');
+    await query(
+      `UPDATE users SET teacher_id = NULL WHERE id IN (${placeholders}) AND role = 'learner'`,
+      [...student_ids]
+    );
+
+    res.json({ success: true, data: { message: `Unassigned ${student_ids.length} students from teacher` } });
+  } catch (error: any) {
+    console.error('Unassign teacher error:', error);
+    res.status(500).json({ success: false, error: 'Failed to unassign teacher' });
+  }
+});
+
+// POST /api/users/unassign-parent — Admin: remove parent assignment from students
+router.post('/unassign-parent', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
+  try {
+    const { student_ids } = req.body;
+
+    if (!Array.isArray(student_ids) || student_ids.length === 0) {
+      res.status(400).json({ success: false, error: 'student_ids[] required' });
+      return;
+    }
+
+    const placeholders = student_ids.map((_, i) => `$${i + 1}`).join(', ');
+    await query(
+      `UPDATE users SET parent_id = NULL WHERE id IN (${placeholders}) AND role = 'learner'`,
+      [...student_ids]
+    );
+
+    res.json({ success: true, data: { message: `Unassigned ${student_ids.length} children from parent` } });
+  } catch (error: any) {
+    console.error('Unassign parent error:', error);
+    res.status(500).json({ success: false, error: 'Failed to unassign parent' });
+  }
+});
+
 export default router;

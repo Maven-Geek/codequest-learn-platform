@@ -44,8 +44,8 @@ router.get('/lessons/:id/quiz', authMiddleware, async (req: Request, res: Respon
   }
 });
 
-// POST /api/quizzes/:id/submit — Submit quiz answers
-router.post('/quizzes/:id/submit', authMiddleware, async (req: Request, res: Response) => {
+// POST /api/quizzes/:id/submit — Submit quiz answers (learners only)
+router.post('/quizzes/:id/submit', authMiddleware, requireRole('learner'), async (req: Request, res: Response) => {
   try {
     const quizId = req.params.id;
     const userId = req.user!.userId;

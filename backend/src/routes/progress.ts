@@ -43,8 +43,8 @@ router.get('/summary', authMiddleware, async (req: Request, res: Response) => {
   }
 });
 
-// POST /api/progress/complete — Mark activity as complete (before quiz)
-router.post('/complete', authMiddleware, async (req: Request, res: Response) => {
+// POST /api/progress/complete — Mark activity as complete (learners only)
+router.post('/complete', authMiddleware, requireRole('learner'), async (req: Request, res: Response) => {
   try {
     const userId = req.user!.userId;
     const { lesson_id } = req.body;
