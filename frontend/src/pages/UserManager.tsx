@@ -340,6 +340,7 @@ export default function UserManager() {
                   <th>Avatar</th>
                   <th>Name</th>
                   <th>Username</th>
+                  <th>Enrollment Key</th>
                   <th>Role</th>
                   <th>Parent</th>
                   <th>Teacher</th>
@@ -354,6 +355,15 @@ export default function UserManager() {
                     <td style={{ fontSize: '1.5rem' }}>{user.avatar_url}</td>
                     <td style={{ fontWeight: 500 }}>{user.display_name}</td>
                     <td className="text-muted">@{user.username}</td>
+                    <td>
+                      {user.role === 'learner' ? (
+                        <code style={{ background: 'var(--color-surface-container-low)', padding: 'var(--space-xs) var(--space-sm)', borderRadius: 'var(--radius-sm)' }}>
+                          {user.enrollment_key || '—'}
+                        </code>
+                      ) : (
+                        <span className="text-muted">—</span>
+                      )}
+                    </td>
                     <td>
                       <span className={`role-badge ${user.role}`}>{user.role}</span>
                     </td>
@@ -395,7 +405,7 @@ export default function UserManager() {
             </div>
           )}
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-xl)' }}>
+          <div className="assign-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-xl)' }}>
             {/* Left: Select teacher + assigned students */}
             <div className="card" style={{ padding: 'var(--space-xl)' }}>
               <h3 style={{ fontFamily: 'var(--font-display)', marginBottom: 'var(--space-lg)' }}>
@@ -553,7 +563,7 @@ export default function UserManager() {
             </div>
           )}
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-xl)' }}>
+          <div className="assign-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-xl)' }}>
             {/* Left: Select parent + assigned children */}
             <div className="card" style={{ padding: 'var(--space-xl)' }}>
               <h3 style={{ fontFamily: 'var(--font-display)', marginBottom: 'var(--space-lg)' }}>

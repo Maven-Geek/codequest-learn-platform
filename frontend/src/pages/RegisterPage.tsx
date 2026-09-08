@@ -16,6 +16,7 @@ export default function RegisterPage() {
     display_name: '',
     role: 'learner' as string,
     avatar_url: '🤖',
+    enrollment_key: '',
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -142,6 +143,26 @@ export default function RegisterPage() {
               <option value="teacher">👩‍🏫 Teacher (I want to monitor students)</option>
             </select>
           </div>
+
+          {formData.role === 'parent' && (
+            <div className="form-group" style={{ background: 'var(--color-surface-container-low)', padding: 'var(--space-md)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border-light)' }}>
+              <label className="form-label">🔑 Learner's Enrollment Key</label>
+              <input
+                id="register-enrollment-key"
+                type="text"
+                className="form-input"
+                placeholder="e.g. A1B2C3"
+                value={formData.enrollment_key}
+                onChange={(e) => update('enrollment_key', e.target.value)}
+                required
+                minLength={6}
+                style={{ textTransform: 'uppercase' }}
+              />
+              <p className="text-muted mt-xs" style={{ fontSize: '0.85rem' }}>
+                You can find this 6-character key on your child's profile page.
+              </p>
+            </div>
+          )}
 
           <button type="submit" className="btn btn-primary btn-lg w-full" disabled={loading}>
             {loading ? '⏳ Creating account...' : '🚀 Start My Adventure!'}

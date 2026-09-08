@@ -352,7 +352,8 @@ h4 { font-size: 1.25rem; }
   display: flex;
   flex-direction: column;
   min-width: 0; /* Prevents flexbox children from breaking container width */
-  max-width: 100vw; /* Ensures it doesn't exceed screen width */
+  max-width: calc(100vw - var(--sidebar-width)); /* Account for fixed sidebar */
+  overflow-x: hidden; /* Prevent any child from causing horizontal scroll */
 }
 
 /* ---- Top Bar ---- */
@@ -1656,6 +1657,7 @@ textarea.form-input {
   padding: var(--space-xl);
   position: relative;
   z-index: 1;
+  overflow-x: hidden; /* Safety net: prevent children from causing horizontal scroll */
 }
 
 .page-header {
@@ -2024,6 +2026,7 @@ textarea.form-input {
 
   .main-content {
     margin-left: 0;
+    max-width: 100vw; /* No sidebar on mobile */
     padding-bottom: 80px; /* space for FAB */
   }
 
@@ -2081,6 +2084,11 @@ textarea.form-input {
   .data-table th,
   .data-table td {
     padding: var(--space-sm);
+  }
+
+  /* Collapse two-column assignment grids on mobile */
+  .assign-grid {
+    grid-template-columns: 1fr !important;
   }
 }
 

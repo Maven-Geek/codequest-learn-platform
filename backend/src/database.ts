@@ -4,8 +4,15 @@
 
 import pg from 'pg';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 
 const { Pool } = pg;
+
+// ---- Enrollment Key Generator ----
+export function generateEnrollmentKey(): string {
+  // 6 character alphanumeric uppercase key
+  return crypto.randomBytes(4).toString('hex').slice(0, 6).toUpperCase();
+}
 
 // Connection pool — uses DATABASE_URL from Supabase
 const pool = new Pool({
@@ -36,6 +43,7 @@ export async function initializeDatabase(): Promise<void> {
       role TEXT NOT NULL CHECK(role IN ('learner', 'parent', 'teacher', 'admin')),
       display_name TEXT NOT NULL,
       avatar_url TEXT DEFAULT '🤖',
+      enrollment_key TEXT UNIQUE,
       parent_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
       teacher_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
       created_at TIMESTAMPTZ DEFAULT NOW()
@@ -105,6 +113,32 @@ export async function initializeDatabase(): Promise<void> {
   `);
 
   console.log('✅ Database tables created');
+
+  // ---- Migration: add enrollment_key column if missing (for existing databases) ----
+  try {
+    await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS enrollment_key TEXT UNIQUE`);
+    // Backfill enrollment keys for existing learners that don't have one
+    const learnersWithoutKey = await query(
+      `SELECT id FROM users WHERE role = 'learner' AND enrollment_key IS NULL`
+    );
+    for (const row of learnersWithoutKey.rows) {
+      let key = generateEnrollmentKey();
+      // Ensure uniqueness
+      let attempts = 0;
+      while (attempts < 10) {
+        const dup = await query('SELECT id FROM users WHERE enrollment_key = $1', [key]);
+        if (dup.rows.length === 0) break;
+        key = generateEnrollmentKey();
+        attempts++;
+      }
+      await query('UPDATE users SET enrollment_key = $1 WHERE id = $2', [key, row.id]);
+    }
+    if (learnersWithoutKey.rows.length > 0) {
+      console.log(`🔑 Backfilled enrollment keys for ${learnersWithoutKey.rows.length} learners`);
+    }
+  } catch (e) {
+    // Column may already exist, ignore
+  }
 }
 
 // ---- Seed Data ----
@@ -639,9 +673,11 @@ export async function seedDatabase(): Promise<void> {
     `INSERT INTO users (username, email, password_hash, role, display_name, avatar_url) VALUES ($1, $2, $3, $4, $5, $6)`,
     ['admin', 'admin@codequest.com', adminPasswordHash, 'admin', 'Admin', '👑']
   );
+
+  const learnerEnrollmentKey = generateEnrollmentKey();
   await query(
-    `INSERT INTO users (username, email, password_hash, role, display_name, avatar_url) VALUES ($1, $2, $3, $4, $5, $6)`,
-    ['coder_kid', 'kid@codequest.com', learnerPasswordHash, 'learner', 'Coder Kid', '🤖']
+    `INSERT INTO users (username, email, password_hash, role, display_name, avatar_url, enrollment_key) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+    ['coder_kid', 'kid@codequest.com', learnerPasswordHash, 'learner', 'Coder Kid', '🤖', learnerEnrollmentKey]
   );
   await query(
     `INSERT INTO users (username, email, password_hash, role, display_name, avatar_url) VALUES ($1, $2, $3, $4, $5, $6)`,
@@ -655,6 +691,8 @@ export async function seedDatabase(): Promise<void> {
   // Link child to parent and teacher
   await query('UPDATE users SET parent_id = (SELECT id FROM users WHERE username = $1) WHERE username = $2', ['parent1', 'coder_kid']);
   await query('UPDATE users SET teacher_id = (SELECT id FROM users WHERE username = $1) WHERE username = $2', ['teacher1', 'coder_kid']);
+
+  console.log(`🔑 Learner "coder_kid" enrollment key: ${learnerEnrollmentKey}`);
 
   console.log('✅ Database seeded with levels, lessons, quizzes, badges, and demo users');
 }

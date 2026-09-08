@@ -13,6 +13,7 @@ export interface User {
   role: UserRole;
   display_name: string;
   avatar_url: string;
+  enrollment_key?: string;
   parent_id: number | null;
   teacher_id: number | null;
   created_at: string;
@@ -34,6 +35,7 @@ export interface RegisterRequest {
   role: UserRole;
   display_name: string;
   avatar_url?: string;
+  enrollment_key?: string;
   parent_id?: number;
   teacher_id?: number;
 }

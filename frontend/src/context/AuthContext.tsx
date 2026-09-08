@@ -12,6 +12,7 @@ interface User {
   role: 'learner' | 'parent' | 'teacher' | 'admin';
   display_name: string;
   avatar_url: string;
+  enrollment_key?: string;
 }
 
 interface AuthContextType {

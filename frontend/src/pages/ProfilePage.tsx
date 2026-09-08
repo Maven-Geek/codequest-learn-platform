@@ -45,6 +45,31 @@ export default function ProfilePage() {
           {user?.display_name}
         </h1>
         <p className="text-muted">@{user?.username}</p>
+
+        {user?.role === 'learner' && user?.enrollment_key && (
+          <div style={{ marginTop: 'var(--space-xl)', background: 'var(--color-primary-container)', padding: 'var(--space-md)', borderRadius: 'var(--radius-md)', display: 'inline-block' }}>
+            <div style={{ fontSize: '0.85rem', color: 'var(--color-on-primary-container)', fontWeight: 600, marginBottom: 'var(--space-xs)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Your Enrollment Key
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)' }}>
+              <code style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--color-primary-dark)', background: 'white', padding: 'var(--space-xs) var(--space-md)', borderRadius: 'var(--radius-sm)' }}>
+                {user.enrollment_key}
+              </code>
+              <button 
+                className="btn btn-primary btn-sm"
+                onClick={() => {
+                  navigator.clipboard.writeText(user.enrollment_key!);
+                  alert('Enrollment key copied to clipboard!');
+                }}
+              >
+                Copy
+              </button>
+            </div>
+            <p style={{ fontSize: '0.85rem', color: 'var(--color-on-primary-container)', marginTop: 'var(--space-sm)', maxWidth: '280px', margin: 'var(--space-sm) auto 0' }}>
+              Share this key with your parent so they can link their account to yours!
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Stats */}
