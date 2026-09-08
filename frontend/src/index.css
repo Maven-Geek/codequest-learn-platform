@@ -2026,8 +2026,20 @@ textarea.form-input {
 
   .main-content {
     margin-left: 0;
-    max-width: 100vw; /* No sidebar on mobile */
+    max-width: 100%; /* Fixes 100vw scrollbar issue */
     padding-bottom: 80px; /* space for FAB */
+  }
+
+  .page-container {
+    padding: var(--space-md);
+  }
+
+  .topbar {
+    padding: var(--space-sm) var(--space-md);
+  }
+
+  .card {
+    padding: var(--space-md);
   }
 
   .sidebar-hamburger {
