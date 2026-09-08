@@ -81,7 +81,7 @@ router.put('/:id', authMiddleware, requireRole('admin'), async (req: Request, re
     const userId = req.params.id;
     const { email, role, display_name, avatar_url, parent_id, teacher_id, password } = req.body;
 
-    const existing = await query('SELECT id FROM users WHERE id = $1', [userId]);
+    const existing = await query('SELECT id, role FROM users WHERE id = $1', [userId]);
     if (existing.rows.length === 0) {
       res.status(404).json({ success: false, error: 'User not found' });
       return;
@@ -92,6 +92,10 @@ router.put('/:id', authMiddleware, requireRole('admin'), async (req: Request, re
       await query('UPDATE users SET password_hash = $1 WHERE id = $2', [password_hash, userId]);
     }
 
+    const targetRole = role || existing.rows[0].role;
+    const finalParentId = targetRole === 'learner' ? (parent_id || null) : null;
+    const finalTeacherId = targetRole === 'learner' ? (teacher_id || null) : null;
+
     await query(`
       UPDATE users SET
         email = COALESCE($1, email),
@@ -101,7 +105,7 @@ router.put('/:id', authMiddleware, requireRole('admin'), async (req: Request, re
         parent_id = $5,
         teacher_id = $6
       WHERE id = $7
-    `, [email, role, display_name, avatar_url, parent_id || null, teacher_id || null, userId]);
+    `, [email, role, display_name, avatar_url, finalParentId, finalTeacherId, userId]);
 
     const updated = await query(
       'SELECT id, username, email, role, display_name, avatar_url, parent_id, teacher_id, created_at FROM users WHERE id = $1',

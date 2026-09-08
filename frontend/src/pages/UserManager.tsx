@@ -301,24 +301,28 @@ export default function UserManager() {
                     <option value="admin">Admin</option>
                   </select>
                 </div>
-                <div className="form-group">
-                  <label className="form-label">Parent (for learners)</label>
-                  <select className="form-select" value={editForm.parent_id} onChange={(e) => setEditForm({ ...editForm, parent_id: e.target.value ? parseInt(e.target.value) : null })}>
-                    <option value="">— None —</option>
-                    {parents.map(p => (
-                      <option key={p.id} value={p.id}>{p.display_name} (@{p.username})</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Teacher (for learners)</label>
-                  <select className="form-select" value={editForm.teacher_id} onChange={(e) => setEditForm({ ...editForm, teacher_id: e.target.value ? parseInt(e.target.value) : null })}>
-                    <option value="">— None —</option>
-                    {teachers.map(t => (
-                      <option key={t.id} value={t.id}>{t.display_name} (@{t.username})</option>
-                    ))}
-                  </select>
-                </div>
+                {editForm.role === 'learner' && (
+                  <>
+                    <div className="form-group">
+                      <label className="form-label">Parent (for learners)</label>
+                      <select className="form-select" value={editForm.parent_id || ''} onChange={(e) => setEditForm({ ...editForm, parent_id: e.target.value ? parseInt(e.target.value) : null })}>
+                        <option value="">— None —</option>
+                        {parents.map(p => (
+                          <option key={p.id} value={p.id}>{p.display_name} (@{p.username})</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Teacher (for learners)</label>
+                      <select className="form-select" value={editForm.teacher_id || ''} onChange={(e) => setEditForm({ ...editForm, teacher_id: e.target.value ? parseInt(e.target.value) : null })}>
+                        <option value="">— None —</option>
+                        {teachers.map(t => (
+                          <option key={t.id} value={t.id}>{t.display_name} (@{t.username})</option>
+                        ))}
+                      </select>
+                    </div>
+                  </>
+                )}
                 <div className="form-group">
                   <label className="form-label">New Password (leave blank to keep current)</label>
                   <input type="password" className="form-input" value={editForm.password || ''} onChange={(e) => setEditForm({ ...editForm, password: e.target.value })} placeholder="••••••••" />
