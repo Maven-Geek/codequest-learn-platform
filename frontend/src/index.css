@@ -351,6 +351,8 @@ h4 { font-size: 1.25rem; }
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  min-width: 0; /* Prevents flexbox children from breaking container width */
+  max-width: 100vw; /* Ensures it doesn't exceed screen width */
 }
 
 /* ---- Top Bar ---- */
@@ -793,10 +795,17 @@ textarea.form-input {
    DATA TABLE
    ============================================================ */
 
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
 .data-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.95rem;
+  white-space: nowrap; /* Prevents columns from squishing too much */
 }
 
 .data-table th {

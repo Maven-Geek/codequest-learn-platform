@@ -100,50 +100,52 @@ export default function ParentDashboard() {
                   <p className="text-muted mt-sm">Ask an admin to link a learner account to yours.</p>
                 </div>
               ) : (
-                <table className="data-table">
-                  <thead>
-                    <tr>
-                      <th>Learner</th>
-                      <th>Current Level</th>
-                      <th>Last Active</th>
-                      <th>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {children.map((child: any) => (
-                      <tr key={child.id}>
-                        <td>
-                          <div className="flex gap-sm" style={{ alignItems: 'center' }}>
-                            <div style={{
-                              width: '36px',
-                              height: '36px',
-                              borderRadius: 'var(--radius-round)',
-                              background: 'var(--color-primary-container)',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              fontSize: '1.1rem'
-                            }}>
-                              {child.avatar_url}
-                            </div>
-                            <div>
-                              <div style={{ fontWeight: 600 }}>{child.display_name}</div>
-                            </div>
-                          </div>
-                        </td>
-                        <td>
-                          <span className="role-badge learner">World 2: Variable Valley</span>
-                        </td>
-                        <td className="text-muted">2 hours ago</td>
-                        <td>
-                          <button className="btn btn-primary btn-sm" onClick={() => viewReport(child)}>
-                            View →
-                          </button>
-                        </td>
+                <div className="table-responsive">
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>Learner</th>
+                        <th>Current Level</th>
+                        <th>Last Active</th>
+                        <th>Action</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {children.map((child: any) => (
+                        <tr key={child.id}>
+                          <td>
+                            <div className="flex gap-sm" style={{ alignItems: 'center' }}>
+                              <div style={{
+                                width: '36px',
+                                height: '36px',
+                                borderRadius: 'var(--radius-round)',
+                                background: 'var(--color-primary-container)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '1.1rem'
+                              }}>
+                                {child.avatar_url}
+                              </div>
+                              <div>
+                                <div style={{ fontWeight: 600 }}>{child.display_name}</div>
+                              </div>
+                            </div>
+                          </td>
+                          <td>
+                            <span className="role-badge learner">World 2: Variable Valley</span>
+                          </td>
+                          <td className="text-muted">2 hours ago</td>
+                          <td>
+                            <button className="btn btn-primary btn-sm" onClick={() => viewReport(child)}>
+                              View →
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               )}
             </div>
 

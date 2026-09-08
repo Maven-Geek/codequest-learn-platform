@@ -86,51 +86,53 @@ export default function TeacherDashboard() {
                 <p className="text-muted mt-sm">Ask an admin to assign learners to your class.</p>
               </div>
             ) : (
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Student</th>
-                    <th>Current Level</th>
-                    <th>Last Active</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {students.map((student: any) => (
-                    <tr key={student.id}>
-                      <td>
-                        <div className="flex gap-sm" style={{ alignItems: 'center' }}>
-                          <div style={{
-                            width: '36px',
-                            height: '36px',
-                            borderRadius: 'var(--radius-round)',
-                            background: 'var(--color-primary-container)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontSize: '1.1rem'
-                          }}>
-                            {student.avatar_url}
-                          </div>
-                          <div>
-                            <div style={{ fontWeight: 600 }}>{student.display_name}</div>
-                            <div className="text-muted" style={{ fontSize: '0.8rem' }}>@{student.username}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td>
-                        <span className="role-badge learner">Active</span>
-                      </td>
-                      <td className="text-muted">Recently</td>
-                      <td>
-                        <button className="btn btn-primary btn-sm" onClick={() => viewReport(student)}>
-                          View Report →
-                        </button>
-                      </td>
+              <div className="table-responsive">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Student</th>
+                      <th>Current Level</th>
+                      <th>Last Active</th>
+                      <th>Action</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {students.map((student: any) => (
+                      <tr key={student.id}>
+                        <td>
+                          <div className="flex gap-sm" style={{ alignItems: 'center' }}>
+                            <div style={{
+                              width: '36px',
+                              height: '36px',
+                              borderRadius: 'var(--radius-round)',
+                              background: 'var(--color-primary-container)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontSize: '1.1rem'
+                            }}>
+                              {student.avatar_url}
+                            </div>
+                            <div>
+                              <div style={{ fontWeight: 600 }}>{student.display_name}</div>
+                              <div className="text-muted" style={{ fontSize: '0.8rem' }}>@{student.username}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td>
+                          <span className="role-badge learner">Active</span>
+                        </td>
+                        <td className="text-muted">Recently</td>
+                        <td>
+                          <button className="btn btn-primary btn-sm" onClick={() => viewReport(student)}>
+                            View Report →
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
         </>
@@ -192,32 +194,34 @@ export default function TeacherDashboard() {
               {/* Lesson details */}
               <div className="card mb-xl" style={{ padding: 'var(--space-xl)' }}>
                 <h3 style={{ fontFamily: 'var(--font-display)', marginBottom: 'var(--space-lg)' }}>📝 Lesson Details</h3>
-                <table className="data-table">
-                  <thead>
-                    <tr>
-                      <th>Lesson</th>
-                      <th>Level</th>
-                      <th>Status</th>
-                      <th>Quiz Score</th>
-                      <th>Points</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {report.progress.map((p: any) => (
-                      <tr key={p.id}>
-                        <td>{p.lesson_title}</td>
-                        <td>{p.level_title}</td>
-                        <td>
-                          <span className={`role-badge ${p.completed ? 'learner' : 'teacher'}`}>
-                            {p.completed ? '✅ Done' : '⏳ In Progress'}
-                          </span>
-                        </td>
-                        <td>{p.quiz_score !== null ? `${p.quiz_score}%` : '—'}</td>
-                        <td style={{ color: 'var(--color-accent-yellow)', fontWeight: 600 }}>+{p.points_earned}</td>
+                <div className="table-responsive">
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>Lesson</th>
+                        <th>Level</th>
+                        <th>Status</th>
+                        <th>Quiz Score</th>
+                        <th>Points</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {report.progress.map((p: any) => (
+                        <tr key={p.id}>
+                          <td>{p.lesson_title}</td>
+                          <td>{p.level_title}</td>
+                          <td>
+                            <span className={`role-badge ${p.completed ? 'learner' : 'teacher'}`}>
+                              {p.completed ? '✅ Done' : '⏳ In Progress'}
+                            </span>
+                          </td>
+                          <td>{p.quiz_score !== null ? `${p.quiz_score}%` : '—'}</td>
+                          <td style={{ color: 'var(--color-accent-yellow)', fontWeight: 600 }}>+{p.points_earned}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
 
               {/* Areas needing improvement */}
