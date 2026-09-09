@@ -9,6 +9,7 @@ export default function ParentDashboard() {
   const [children, setChildren] = useState<any[]>([]);
   const [selectedChild, setSelectedChild] = useState<any>(null);
   const [report, setReport] = useState<any>(null);
+  const [reports, setReports] = useState<any[]>([]); // aggregated reports for all children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -18,7 +19,19 @@ export default function ParentDashboard() {
   const loadChildren = async () => {
     try {
       const res = await api.getChildren();
-      setChildren(res.data);
+      const kids = res.data;
+      setChildren(kids);
+
+      // Fetch individual reports for all children to compute aggregate stats
+      if (kids.length > 0) {
+        const reportResults = await Promise.allSettled(
+          kids.map((child: any) => api.getReport(child.id))
+        );
+        const successfulReports = reportResults
+          .filter((r): r is PromiseFulfilledResult<any> => r.status === 'fulfilled')
+          .map(r => r.value.data);
+        setReports(successfulReports);
+      }
     } catch (err) {
       console.error('Failed to load children:', err);
     } finally {
@@ -36,6 +49,31 @@ export default function ParentDashboard() {
     }
   };
 
+  // ── Aggregate stats from all children's reports ──────────────────────────
+  const totalLessonsCompleted = reports.reduce(
+    (sum, r) => sum + (r?.summary?.completed_lessons ?? 0), 0
+  );
+  const avgQuizScore = reports.length > 0
+    ? Math.round(
+        reports.reduce((sum, r) => sum + (r?.summary?.average_quiz_score ?? 0), 0) / reports.length
+      )
+    : 0;
+  const totalPoints = reports.reduce(
+    (sum, r) => sum + (r?.summary?.total_points ?? 0), 0
+  );
+
+  // Collect focus areas from all children (failed quizzes / unstarted levels)
+  const allFocusAreas: { childName: string; area: string }[] = [];
+  reports.forEach(r => {
+    if (r?.areas_needing_improvement && r.areas_needing_improvement.length > 0) {
+      r.areas_needing_improvement
+        .filter((a: string) => !a.startsWith('Great progress')) // skip generic positive messages
+        .forEach((area: string) => {
+          allFocusAreas.push({ childName: r.user?.display_name ?? 'Learner', area });
+        });
+    }
+  });
+
   if (loading) return <div className="loading-spinner">🚀</div>;
 
   return (
@@ -52,34 +90,37 @@ export default function ParentDashboard() {
             </div>
           </div>
 
-          {/* Summary stats */}
+          {/* Summary stats — computed from real child data */}
           <div className="dashboard-grid mb-xl">
             <div className="stat-card">
-              <div className="stat-card-icon blue">🕐</div>
+              <div className="stat-card-icon blue">📚</div>
               <div className="stat-card-info">
-                <div className="stat-card-label">Total Time Spent</div>
-                <div className="stat-card-value" style={{ fontSize: '1.8rem' }}>
-                  {children.length > 0 ? '12' : '0'}<span style={{ fontSize: '1rem', fontWeight: 400 }}>h </span>
-                  {children.length > 0 ? '45' : '0'}<span style={{ fontSize: '1rem', fontWeight: 400 }}>m</span>
+                <div className="stat-card-label">Lessons Completed</div>
+                <div className="stat-card-value">{totalLessonsCompleted}</div>
+                <div className="stat-card-trend">
+                  Across {children.length} learner{children.length !== 1 ? 's' : ''}
                 </div>
-                <div className="stat-card-trend">↗ +2 hours from last week</div>
               </div>
             </div>
             <div className="stat-card">
               <div className="stat-card-icon green">🎯</div>
               <div className="stat-card-info">
                 <div className="stat-card-label">Avg. Quiz Score</div>
-                <div className="stat-card-value">{children.length > 0 ? '92' : '0'}%</div>
-                <div className="stat-card-trend">🏆 Top 10% of cohort</div>
+                <div className="stat-card-value">
+                  {children.length > 0 ? `${avgQuizScore}%` : '—'}
+                </div>
+                {avgQuizScore >= 80 && children.length > 0 && (
+                  <div className="stat-card-trend">🏆 Excellent performance!</div>
+                )}
               </div>
             </div>
             <div className="stat-card">
-              <div className="stat-card-icon yellow">💎</div>
+              <div className="stat-card-icon yellow">⭐</div>
               <div className="stat-card-info">
-                <div className="stat-card-label">Levels Completed</div>
-                <div className="stat-card-value">{children.length > 0 ? '14' : '0'}</div>
+                <div className="stat-card-label">Total Points Earned</div>
+                <div className="stat-card-value">{totalPoints}</div>
                 <div style={{ fontSize: '0.8rem', color: 'var(--color-text-dim)', marginTop: 'var(--space-xs)' }}>
-                  Across {children.length} learner{children.length !== 1 ? 's' : ''}
+                  Combined across {children.length} learner{children.length !== 1 ? 's' : ''}
                 </div>
               </div>
             </div>
@@ -90,7 +131,6 @@ export default function ParentDashboard() {
             <div className="card" style={{ padding: 'var(--space-xl)' }}>
               <div className="flex-between mb-lg">
                 <h3 style={{ fontFamily: 'var(--font-display)' }}>Your Explorers</h3>
-                <span className="text-muted" style={{ fontSize: '0.9rem', color: 'var(--color-primary)', cursor: 'pointer' }}>Add Learner +</span>
               </div>
 
               {children.length === 0 ? (
@@ -105,85 +145,110 @@ export default function ParentDashboard() {
                     <thead>
                       <tr>
                         <th>Learner</th>
-                        <th>Current Level</th>
-                        <th>Last Active</th>
+                        <th>Progress</th>
+                        <th>Avg Score</th>
+                        <th>Points</th>
                         <th>Action</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {children.map((child: any) => (
-                        <tr key={child.id}>
-                          <td>
-                            <div className="flex gap-sm" style={{ alignItems: 'center' }}>
-                              <div style={{
-                                width: '36px',
-                                height: '36px',
-                                borderRadius: 'var(--radius-round)',
-                                background: 'var(--color-primary-container)',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                fontSize: '1.1rem'
-                              }}>
-                                {child.avatar_url}
+                      {children.map((child: any) => {
+                        const childReport = reports.find(r => r?.user?.id === child.id);
+                        const summary = childReport?.summary;
+                        return (
+                          <tr key={child.id}>
+                            <td>
+                              <div className="flex gap-sm" style={{ alignItems: 'center' }}>
+                                <div style={{
+                                  width: '36px',
+                                  height: '36px',
+                                  borderRadius: 'var(--radius-round)',
+                                  background: 'var(--color-primary-container)',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  fontSize: '1.1rem'
+                                }}>
+                                  {child.avatar_url}
+                                </div>
+                                <div>
+                                  <div style={{ fontWeight: 600 }}>{child.display_name}</div>
+                                  <div className="text-muted" style={{ fontSize: '0.8rem' }}>@{child.username}</div>
+                                </div>
                               </div>
-                              <div>
-                                <div style={{ fontWeight: 600 }}>{child.display_name}</div>
-                              </div>
-                            </div>
-                          </td>
-                          <td>
-                            <span className="role-badge learner">World 2: Variable Valley</span>
-                          </td>
-                          <td className="text-muted">2 hours ago</td>
-                          <td>
-                            <button className="btn btn-primary btn-sm" onClick={() => viewReport(child)}>
-                              View →
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
+                            </td>
+                            <td>
+                              {summary ? (
+                                <div style={{ minWidth: '100px' }}>
+                                  <div style={{ fontSize: '0.8rem', color: 'var(--color-text-dim)', marginBottom: '4px' }}>
+                                    {summary.completed_lessons}/{summary.total_lessons} lessons
+                                  </div>
+                                  <div className="progress-bar-container" style={{ height: '6px' }}>
+                                    <div className="progress-bar-fill" style={{ width: `${summary.completion_percentage}%` }} />
+                                  </div>
+                                </div>
+                              ) : <span className="text-muted">—</span>}
+                            </td>
+                            <td>
+                              {summary ? (
+                                <span className={`role-badge ${summary.average_quiz_score >= 70 ? 'learner' : 'teacher'}`}>
+                                  {summary.average_quiz_score}%
+                                </span>
+                              ) : <span className="text-muted">—</span>}
+                            </td>
+                            <td style={{ color: 'var(--color-accent-yellow)', fontWeight: 600 }}>
+                              {summary ? `⭐ ${summary.total_points}` : '—'}
+                            </td>
+                            <td>
+                              <button className="btn btn-primary btn-sm" onClick={() => viewReport(child)}>
+                                View →
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
               )}
             </div>
 
-            {/* Focus Areas */}
+            {/* Focus Areas — dynamically generated from children's actual data */}
             {children.length > 0 && (
               <div className="card" style={{ padding: 'var(--space-xl)' }}>
                 <h3 style={{ fontFamily: 'var(--font-display)', marginBottom: 'var(--space-sm)' }}>
                   🏆 Focus Areas
                 </h3>
                 <p className="text-muted mb-lg" style={{ fontSize: '0.9rem' }}>
-                  Topics where learners spent extra time or needed multiple attempts.
+                  Topics where learners need extra attention.
                 </p>
 
-                <div className="mb-lg">
-                  <div className="flex-between mb-sm">
-                    <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>Loops (For/While)</span>
-                    <span style={{ fontWeight: 700, color: 'var(--color-accent-yellow)', fontSize: '0.9rem' }}>65% Mastery</span>
+                {allFocusAreas.length === 0 ? (
+                  <div className="alert alert-success">
+                    🌟 All learners are doing great! No areas needing improvement right now.
                   </div>
-                  <div className="progress-bar-container" style={{ height: '10px' }}>
-                    <div className="progress-bar-fill gold" style={{ width: '65%' }} />
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
+                    {allFocusAreas.slice(0, 5).map((fa, i) => (
+                      <div key={i} style={{
+                        padding: 'var(--space-sm) var(--space-md)',
+                        background: 'var(--color-bg-warm)',
+                        borderRadius: 'var(--radius-md)',
+                        borderLeft: '3px solid var(--color-accent-orange)',
+                      }}>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--color-text-dim)', marginBottom: '2px' }}>
+                          {fa.childName}
+                        </div>
+                        <div style={{ fontSize: '0.875rem', fontWeight: 500 }}>{fa.area}</div>
+                      </div>
+                    ))}
+                    {allFocusAreas.length > 5 && (
+                      <p className="text-muted" style={{ fontSize: '0.85rem', textAlign: 'center' }}>
+                        +{allFocusAreas.length - 5} more areas
+                      </p>
+                    )}
                   </div>
-                  <p className="text-muted mt-sm" style={{ fontSize: '0.8rem' }}>👤 All learners</p>
-                </div>
-
-                <div className="mb-lg">
-                  <div className="flex-between mb-sm">
-                    <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>Variable Scope</span>
-                    <span style={{ fontWeight: 700, color: 'var(--color-accent-yellow)', fontSize: '0.9rem' }}>72% Mastery</span>
-                  </div>
-                  <div className="progress-bar-container" style={{ height: '10px' }}>
-                    <div className="progress-bar-fill gold" style={{ width: '72%' }} />
-                  </div>
-                  <p className="text-muted mt-sm" style={{ fontSize: '0.8rem' }}>👤 All learners</p>
-                </div>
-
-                <button className="btn btn-ghost btn-sm w-full" style={{ color: 'var(--color-primary)' }}>
-                  View recommended lessons
-                </button>
+                )}
               </div>
             )}
           </div>
@@ -200,6 +265,7 @@ export default function ParentDashboard() {
               <div className="card mb-xl text-center" style={{ padding: 'var(--space-xl)' }}>
                 <div style={{ fontSize: '3rem', marginBottom: 'var(--space-sm)' }}>{report.user.avatar_url}</div>
                 <h2 style={{ fontFamily: 'var(--font-display)' }}>{report.user.display_name}'s Progress</h2>
+                <p className="text-muted">@{report.user.username}</p>
               </div>
 
               {/* Summary stats */}
