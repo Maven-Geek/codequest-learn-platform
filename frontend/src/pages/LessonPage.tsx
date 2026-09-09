@@ -90,6 +90,57 @@ export default function LessonPage() {
           example: `## Example: Counting Coins 🪙\n\n**Variable:** \`coins = 0\`\n\n| Step | Action | coins value |\n|:---:|:---|:---|\n| 1 | 🪙 Pick up coin | \`coins = 1\` |\n| 2 | 🪙 Pick up coin | \`coins = 2\` |\n| 3 | 🪙 Pick up coin | \`coins = 3\` |\n\nThe variable **"coins"** keeps track of how many coins we've collected!\n\nAt the end, we can check: *"Do we have 3 coins?"* ✅`
         };
       }
+      if (lessonData && (lessonData.id === 9 || lessonData.title === 'Build Your Own!' || lessonData.title?.includes('Build Your Own'))) {
+        lessonData = {
+          ...lessonData,
+          activity_data: {
+            ...lessonData.activity_data,
+            instructions: 'Welcome to the Champion Playground! 🎨 Build your own program to collect coins, navigate the castle pillars, and reach the trophy! There are many ways to solve it — be creative!',
+            gameType: 'free-play',
+            availableBlocks: [
+              { id: 'fp-move1', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+              { id: 'fp-move2', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+              { id: 'fp-move3', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+              { id: 'fp-move4', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+              { id: 'fp-move5', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+              { id: 'fp-move6', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+              { id: 'fp-turnl', type: 'turn-left', label: '🟠 Turn Left', color: '#FF9F43' },
+              { id: 'fp-turnr', type: 'turn-right', label: '🟢 Turn Right', color: '#01A3A4' },
+              { id: 'fp-turnl2', type: 'turn-left', label: '🟠 Turn Left', color: '#FF9F43' },
+              { id: 'fp-turnr2', type: 'turn-right', label: '🟢 Turn Right', color: '#01A3A4' },
+              { id: 'fp-repeat', type: 'repeat', label: '🔁 Repeat 2 times', color: '#FF9F43', repeatCount: 2 },
+              { id: 'fp-repeat3', type: 'repeat', label: '🔁 Repeat 3 times', color: '#FF9F43', repeatCount: 3 },
+              { id: 'fp-pickup1', type: 'pick-up', label: '🟡 Pick Up Coin', color: '#FECA57' },
+              { id: 'fp-pickup2', type: 'pick-up', label: '🟡 Pick Up Coin', color: '#FECA57' },
+              { id: 'fp-pickup3', type: 'pick-up', label: '🟡 Pick Up Coin', color: '#FECA57' },
+              { id: 'fp-pickup4', type: 'pick-up', label: '🟡 Pick Up Coin', color: '#FECA57' }
+            ],
+            gridSize: { rows: 5, cols: 5 },
+            startPosition: { row: 4, col: 0 },
+            endPosition: { row: 0, col: 4 },
+            walls: [
+              { row: 1, col: 1 },
+              { row: 1, col: 3 },
+              { row: 3, col: 1 },
+              { row: 3, col: 3 }
+            ],
+            collectibles: [
+              { row: 0, col: 2 },
+              { row: 2, col: 0 },
+              { row: 2, col: 2 },
+              { row: 2, col: 4 },
+              { row: 4, col: 2 }
+            ],
+            objectives: [
+              'Collect at least 2 coins 🪙',
+              'Use at least 4 blocks 🧱',
+              'Reach the trophy 🏆 or visit 5+ squares!'
+            ],
+            characterEmoji: '🤖',
+            goalEmoji: '🏆'
+          }
+        };
+      }
       setLesson(lessonData);
       if (quizRes) setQuiz(quizRes.data);
     } catch (err) {
@@ -108,7 +159,6 @@ export default function LessonPage() {
         console.error('Failed to save activity progress:', err);
       }
     }
-    setTimeout(() => setTab('quiz'), 2000);
   };
 
   const handleQuizSubmit = async (answers: any[]) => {
@@ -350,29 +400,59 @@ export default function LessonPage() {
       )}
 
       {tab === 'activity' && (
-        <div className="card" style={{ padding: '0', overflow: 'hidden' }}>
-          {lesson.activity_type === 'drag-drop' && (
-            <DragDropActivity
-              activity={lesson.activity_data}
-              onComplete={handleActivityComplete}
-            />
-          )}
-          {(lesson.activity_type === 'puzzle' || lesson.activity_type === 'pattern') && (
-            <CodingPuzzle
-              activity={lesson.activity_data}
-              onComplete={handleActivityComplete}
-            />
-          )}
-          {lesson.activity_type === 'game' && (
-            <DragDropActivity
-              activity={{
-                ...lesson.activity_data,
-                correctSequence: [], // Free play - any sequence works
+        <>
+          <div className="card" style={{ padding: '0', overflow: 'hidden' }}>
+            {lesson.activity_type === 'drag-drop' && (
+              <DragDropActivity
+                activity={lesson.activity_data}
+                onComplete={handleActivityComplete}
+                onGoToQuiz={() => setTab('quiz')}
+              />
+            )}
+            {(lesson.activity_type === 'puzzle' || lesson.activity_type === 'pattern') && (
+              <CodingPuzzle
+                activity={lesson.activity_data}
+                onComplete={handleActivityComplete}
+              />
+            )}
+            {lesson.activity_type === 'game' && (
+              <DragDropActivity
+                activity={{
+                  ...lesson.activity_data,
+                  correctSequence: [], // Free play - any sequence works
+                }}
+                onComplete={handleActivityComplete}
+                onGoToQuiz={() => setTab('quiz')}
+              />
+            )}
+          </div>
+
+          {activityDone && quiz && (
+            <div
+              className="card mt-lg text-center"
+              style={{
+                background: 'linear-gradient(135deg, rgba(46, 125, 50, 0.08), rgba(0, 99, 156, 0.08))',
+                border: '2px solid var(--color-accent-green)',
+                padding: 'var(--space-xl)',
               }}
-              onComplete={handleActivityComplete}
-            />
+            >
+              <div style={{ fontSize: '2.5rem', marginBottom: 'var(--space-xs)' }}>🎉</div>
+              <h3 style={{ fontFamily: 'var(--font-display)', color: 'var(--color-success)', marginBottom: 'var(--space-xs)' }}>
+                Activity Completed!
+              </h3>
+              <p className="text-muted mb-lg">
+                Great job! You can keep playing and experimenting with your code, or take the quiz when you're ready.
+              </p>
+              <button
+                className="btn btn-success btn-lg"
+                onClick={() => setTab('quiz')}
+                style={{ fontSize: '1.1rem', padding: 'var(--space-md) var(--space-xl)', boxShadow: 'var(--shadow-btn)' }}
+              >
+                📝 Ready for Quiz? Take Quiz →
+              </button>
+            </div>
           )}
-        </div>
+        </>
       )}
 
       {tab === 'quiz' && quiz && !quizResult && (
@@ -468,10 +548,12 @@ export default function LessonPage() {
               </div>
               {quizResult?.badges_earned?.length > 0 && (
                 <div className="mb-lg">
-                  <p className="text-muted mb-sm">New Badges:</p>
-                  <div className="flex-center gap-md">
+                  <p className="text-muted mb-sm" style={{ fontWeight: 600, fontSize: '0.9rem' }}>
+                    🎖️ New Badges:
+                  </p>
+                  <div className="celebration-badges-container">
                     {quizResult.badges_earned.map((badge: any) => (
-                      <div key={badge.id} className="badge-item earned" style={{ padding: 'var(--space-md)' }}>
+                      <div key={badge.id} className="celebration-badge-item">
                         <span className="badge-emoji">{badge.icon_emoji}</span>
                         <span className="badge-name">{badge.name}</span>
                       </div>

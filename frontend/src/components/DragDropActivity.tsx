@@ -27,6 +27,7 @@ interface DragDropActivityProps {
     objectives?: string[];
   };
   onComplete: () => void;
+  onGoToQuiz?: () => void;
 }
 
 interface RobotState {
@@ -38,7 +39,7 @@ interface RobotState {
   hitWall?: boolean;
 }
 
-export default function DragDropActivity({ activity, onComplete }: DragDropActivityProps) {
+export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: DragDropActivityProps) {
   const startPos = activity.startPosition || { row: 0, col: 0 };
 
   const [palette, setPalette] = useState<Block[]>([...activity.availableBlocks]);
@@ -261,7 +262,10 @@ export default function DragDropActivity({ activity, onComplete }: DragDropActiv
     if (!activity.correctSequence || activity.correctSequence.length === 0) {
       const usedEnoughBlocks = currentDropZone.length >= 4;
       const visitedEnoughSquares = visitedCells.size >= 3;
-      return usedEnoughBlocks && visitedEnoughSquares;
+      const collectedCoins = (activity.collectibles && activity.collectibles.length > 0)
+        ? collectedItems.size >= 1
+        : true;
+      return usedEnoughBlocks && (visitedEnoughSquares || collectedCoins);
     }
 
     const userBlocks = currentDropZone.map(b => {
@@ -292,15 +296,19 @@ export default function DragDropActivity({ activity, onComplete }: DragDropActiv
       ? true
       : lastStep.collected.length >= activity.collectibles.length;
 
+    const isFreePlay = !activity.correctSequence || activity.correctSequence.length === 0;
     const isCorrect = isSequenceCorrect(currentDropZone);
 
-    // Auto-complete (Option A): Goal reached with required collectibles, or sequence matched
-    if ((reachedGoal && collectedAll) || isCorrect) {
-      setResult('success');
-      const timer = setTimeout(() => {
+    if (isFreePlay) {
+      if ((reachedGoal && lastStep.collected.length >= 1) || isCorrect) {
+        setResult('success');
         onComplete();
-      }, 2000);
-      animationTimeouts.current.push(timer);
+      }
+    } else {
+      if ((reachedGoal && collectedAll) || isCorrect) {
+        setResult('success');
+        onComplete();
+      }
     }
   };
 
@@ -591,20 +599,41 @@ export default function DragDropActivity({ activity, onComplete }: DragDropActiv
             >
               {activity.objectives.map((obj, idx) => {
                 let met = false;
-                if (obj.toLowerCase().includes('4 blocks')) met = dropZone.length >= 4;
-                else if (obj.toLowerCase().includes('3 different squares')) met = visitedCells.size >= 3;
-                else met = true;
+                const lower = obj.toLowerCase();
+
+                if (lower.includes('coin')) {
+                  const match = lower.match(/\b(\d+)\s+coin/);
+                  const targetCoins = match ? parseInt(match[1]) : 1;
+                  met = collectedItems.size >= targetCoins;
+                } else if (lower.includes('block')) {
+                  const match = lower.match(/\b(\d+)\s+block/);
+                  const targetBlocks = match ? parseInt(match[1]) : 4;
+                  met = dropZone.length >= targetBlocks;
+                } else if (lower.includes('square')) {
+                  const match = lower.match(/\b(\d+)\+?\s*(?:different\s*)?square/);
+                  const targetSquares = match ? parseInt(match[1]) : 3;
+                  met = visitedCells.size >= targetSquares;
+                } else if (lower.includes('trophy') || lower.includes('goal')) {
+                  const reachedTrophy = activity.endPosition
+                    ? characterPos.row === activity.endPosition.row && characterPos.col === activity.endPosition.col
+                    : false;
+                  met = reachedTrophy || visitedCells.size >= 5;
+                } else {
+                  met = true;
+                }
 
                 return (
                   <span
                     key={idx}
                     style={{
                       fontSize: '0.85rem',
-                      padding: '2px 8px',
+                      padding: '4px 10px',
                       borderRadius: 'var(--radius-sm)',
-                      background: met ? 'rgba(0, 184, 148, 0.15)' : 'var(--color-surface)',
-                      color: met ? 'var(--color-accent-green)' : 'var(--color-text-dim)',
+                      background: met ? 'rgba(46, 125, 50, 0.15)' : 'var(--color-surface)',
+                      border: met ? '1px solid var(--color-success-light)' : '1px solid var(--color-border-light)',
+                      color: met ? 'var(--color-success)' : 'var(--color-text-dim)',
                       fontWeight: 600,
+                      transition: 'all 0.25s ease',
                     }}
                   >
                     {met ? '✓' : '○'} {obj}
@@ -735,8 +764,32 @@ export default function DragDropActivity({ activity, onComplete }: DragDropActiv
       </div>
 
       {result === 'success' && (
-        <div className="alert alert-success mt-md" style={{ fontSize: '1.1rem', textAlign: 'center' }}>
-          🎉 Perfect! The robot reached the goal! Moving to quiz...
+        <div
+          className="alert alert-success mt-md"
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 'var(--space-sm)',
+            textAlign: 'center',
+            padding: 'var(--space-lg)',
+          }}
+        >
+          <div style={{ fontSize: '1.2rem', fontWeight: 700 }}>
+            🎉 Great Job! Activity Completed!
+          </div>
+          <p style={{ margin: 0, color: 'var(--color-text-muted)' }}>
+            You can keep playing and testing new paths, or take the quiz when ready!
+          </p>
+          {onGoToQuiz && (
+            <button
+              className="btn btn-success btn-md mt-xs"
+              onClick={onGoToQuiz}
+              style={{ boxShadow: 'var(--shadow-btn)' }}
+            >
+              📝 Take Quiz →
+            </button>
+          )}
         </div>
       )}
       {result === 'error' && (

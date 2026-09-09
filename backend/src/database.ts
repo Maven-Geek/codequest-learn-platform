@@ -379,23 +379,49 @@ export async function seedDatabase(): Promise<void> {
       `## Tips for Your Creation 💡\n\n1. **Plan first** — think about what you want the robot to do\n2. **Start simple** — get the basic steps right\n3. **Add loops** — can you make it shorter?\n4. **Test it** — run your program and see what happens!\n\nRemember: Real programmers try, fail, fix, and try again. That's how coding works! 💪`,
       'game',
       JSON.stringify({
-        instructions: 'Create your own program! Use any blocks to navigate the robot around the grid. Try to visit as many squares as you can!',
+        instructions: 'Welcome to the Champion Playground! 🎨 Build your own program to collect coins, navigate the castle pillars, and reach the trophy! There are many ways to solve it — be creative!',
         gameType: 'free-play',
         availableBlocks: [
           { id: 'fp-move1', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
           { id: 'fp-move2', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
           { id: 'fp-move3', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
-          { id: 'fp-turnl', type: 'turn-left', label: '🟠 Turn Left', color: '#FF9F43' },
-          { id: 'fp-turnr', type: 'turn-right', label: '🟢 Turn Right', color: '#01A3A4' },
-          { id: 'fp-repeat', type: 'repeat', label: '🔁 Repeat 2 times', color: '#FF9F43', repeatCount: 2 },
-          { id: 'fp-pickup', type: 'pick-up', label: '🟡 Pick Up', color: '#FECA57' },
           { id: 'fp-move4', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
           { id: 'fp-move5', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
-          { id: 'fp-turnl2', type: 'turn-left', label: '🟠 Turn Left', color: '#FF9F43' }
+          { id: 'fp-move6', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+          { id: 'fp-turnl', type: 'turn-left', label: '🟠 Turn Left', color: '#FF9F43' },
+          { id: 'fp-turnr', type: 'turn-right', label: '🟢 Turn Right', color: '#01A3A4' },
+          { id: 'fp-turnl2', type: 'turn-left', label: '🟠 Turn Left', color: '#FF9F43' },
+          { id: 'fp-turnr2', type: 'turn-right', label: '🟢 Turn Right', color: '#01A3A4' },
+          { id: 'fp-repeat', type: 'repeat', label: '🔁 Repeat 2 times', color: '#FF9F43', repeatCount: 2 },
+          { id: 'fp-repeat3', type: 'repeat', label: '🔁 Repeat 3 times', color: '#FF9F43', repeatCount: 3 },
+          { id: 'fp-pickup1', type: 'pick-up', label: '🟡 Pick Up Coin', color: '#FECA57' },
+          { id: 'fp-pickup2', type: 'pick-up', label: '🟡 Pick Up Coin', color: '#FECA57' },
+          { id: 'fp-pickup3', type: 'pick-up', label: '🟡 Pick Up Coin', color: '#FECA57' },
+          { id: 'fp-pickup4', type: 'pick-up', label: '🟡 Pick Up Coin', color: '#FECA57' }
         ],
         gridSize: { rows: 5, cols: 5 },
-        startPosition: { row: 2, col: 2 },
-        objectives: ['Use at least 4 blocks', 'Visit at least 3 different squares', 'Have fun!']
+        startPosition: { row: 4, col: 0 },
+        endPosition: { row: 0, col: 4 },
+        walls: [
+          { row: 1, col: 1 },
+          { row: 1, col: 3 },
+          { row: 3, col: 1 },
+          { row: 3, col: 3 }
+        ],
+        collectibles: [
+          { row: 0, col: 2 },
+          { row: 2, col: 0 },
+          { row: 2, col: 2 },
+          { row: 2, col: 4 },
+          { row: 4, col: 2 }
+        ],
+        objectives: [
+          'Collect at least 2 coins 🪙',
+          'Use at least 4 blocks 🧱',
+          'Reach the trophy 🏆 or visit 5+ squares!'
+        ],
+        characterEmoji: '🤖',
+        goalEmoji: '🏆'
       })
     ]
   );
