@@ -7,7 +7,7 @@
     "allowSyntheticDefaultImports": true,
     "strict": true,
     "outDir": "./dist",
-    "rootDir": "./src",
+    "rootDirs": ["./src", "../shared/src"],
     "resolveJsonModule": true,
     "declaration": true,
     "paths": {

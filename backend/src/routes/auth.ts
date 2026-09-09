@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import { query, generateEnrollmentKey } from '../database';
 import { generateToken } from '../middleware/auth';
-import type { RegisterRequest, LoginRequest, User } from '../../shared/src/types';
+import type { RegisterRequest, LoginRequest, User } from '../../../shared/src/types';
 
 const router = Router();
 

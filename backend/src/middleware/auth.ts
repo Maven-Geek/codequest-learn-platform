@@ -4,7 +4,7 @@
 
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import type { UserRole } from '../../shared/src/types';
+import type { UserRole } from '../../../shared/src/types';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'codequest-secret-key-2024';
 

@@ -1,18 +1,20 @@
 // ============================================================
-// CodeQuest — Drag & Drop Activity Component
+// CodeQuest — Drag & Drop Activity Component (Enhanced Studio Edition)
 // ============================================================
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
+import { sfx } from '../utils/audio';
 
-interface Block {
+export interface Block {
   id: string;
   type: string;
   label: string;
   color: string;
   repeatCount?: number;
+  turnDirection?: 'left' | 'right';
 }
 
-interface DragDropActivityProps {
+export interface DragDropActivityProps {
   activity: {
     instructions: string;
     availableBlocks: Block[];
@@ -22,8 +24,13 @@ interface DragDropActivityProps {
     endPosition?: { row: number; col: number };
     walls?: { row: number; col: number }[];
     collectibles?: { row: number; col: number }[];
+    keys?: { row: number; col: number }[];
+    doors?: { row: number; col: number }[];
     characterEmoji?: string;
     goalEmoji?: string;
+    theme?: 'classic' | 'space' | 'castle' | 'forest';
+    hints?: string[];
+    maxBlocksStar?: number;
     objectives?: string[];
   };
   onComplete: () => void;
@@ -36,11 +43,37 @@ interface RobotState {
   direction: number; // 0=right, 1=down, 2=left, 3=up
   visited: string[];
   collected: string[];
+  keys: string[];
+  unlockedDoors: string[];
   hitWall?: boolean;
+  hitDoor?: boolean;
+  soundEvent?: 'step' | 'turn' | 'coin' | 'key' | 'door' | 'wall';
+}
+
+interface StarBreakdown {
+  stars: number;
+  star1: boolean;
+  star2: boolean;
+  star3: boolean;
+  star2Label: string;
+  star3Label: string;
+  targetBlocks: number;
 }
 
 export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: DragDropActivityProps) {
   const startPos = activity.startPosition || { row: 0, col: 0 };
+  const theme = activity.theme || 'classic';
+
+  // Theme-based default emojis
+  const defaultAvatars: Record<string, { char: string; goal: string; wall: string }> = {
+    classic: { char: '🤖', goal: '🏆', wall: '🧱' },
+    space:   { char: '🚀', goal: '🪐', wall: '☄️' },
+    castle:  { char: '🧙‍♂️', goal: '🏰', wall: '🧱' },
+    forest:  { char: '🦊', goal: '🌳', wall: '🪨' },
+  };
+  const charEmoji = activity.characterEmoji || defaultAvatars[theme]?.char || '🤖';
+  const goalEmoji = activity.goalEmoji || defaultAvatars[theme]?.goal || '🏆';
+  const wallEmoji = defaultAvatars[theme]?.wall || '🧱';
 
   const [palette, setPalette] = useState<Block[]>([...activity.availableBlocks]);
   const [dropZone, setDropZone] = useState<Block[]>([]);
@@ -52,21 +85,44 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
   const [direction, setDirection] = useState(0); // 0=right, 1=down, 2=left, 3=up
   const [visitedCells, setVisitedCells] = useState<Set<string>>(new Set([`${startPos.row}-${startPos.col}`]));
   const [collectedItems, setCollectedItems] = useState<Set<string>>(new Set());
+  const [collectedKeys, setCollectedKeys] = useState<Set<string>>(new Set());
+  const [unlockedDoors, setUnlockedDoors] = useState<Set<string>>(new Set());
   const [hitWall, setHitWall] = useState(false);
+  const [bumpCount, setBumpCount] = useState(0);
+
+  // Audio mute state
+  const [muted, setMuted] = useState(sfx.getMuted());
+
+  // Progressive hints state
+  const [showHints, setShowHints] = useState(false);
+  const [revealedHints, setRevealedHints] = useState(1);
+
+  // Star rating outcome
+  const [starResult, setStarResult] = useState<StarBreakdown | null>(null);
 
   const draggedItem = useRef<{ block: Block; source: 'palette' | 'dropzone'; index: number } | null>(null);
   const animationTimeouts = useRef<NodeJS.Timeout[]>([]);
 
-  // Clear pending animation timeouts on unmount
+  // Clear timeouts on unmount
   useEffect(() => {
     return () => {
       animationTimeouts.current.forEach(clearTimeout);
     };
   }, []);
 
+  // Sync palette if activity changes
+  useEffect(() => {
+    reset();
+  }, [activity]);
+
   const clearPendingAnimations = () => {
     animationTimeouts.current.forEach(clearTimeout);
     animationTimeouts.current = [];
+  };
+
+  const toggleSound = () => {
+    const isMutedNow = sfx.toggleMute();
+    setMuted(isMutedNow);
   };
 
   const getBlockClass = (type: string) => {
@@ -83,13 +139,15 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
     return map[type] || 'block-action';
   };
 
-  // Pure simulation engine: calculates robot path given blocks in order
+  // Pure simulation engine: calculates robot path with keys, locked doors, and collectibles
   const computeSimulationSteps = (blocks: Block[]): RobotState[] => {
     const start = activity.startPosition || { row: 0, col: 0 };
     const rows = activity.gridSize?.rows || 1;
     const cols = activity.gridSize?.cols || 1;
     const walls = activity.walls || [];
     const collectibles = activity.collectibles || [];
+    const keys = activity.keys || [];
+    const doors = activity.doors || [];
 
     const states: RobotState[] = [
       {
@@ -98,6 +156,8 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
         direction: 0,
         visited: [`${start.row}-${start.col}`],
         collected: [],
+        keys: [],
+        unlockedDoors: [],
       },
     ];
 
@@ -106,6 +166,52 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
     let curDir = 0;
     const curVisited = new Set<string>([`${start.row}-${start.col}`]);
     const curCollected = new Set<string>();
+    const curKeys = new Set<string>();
+    const curUnlockedDoors = new Set<string>();
+
+    const hasPickUpBlock = activity.availableBlocks.some(b => b.type === 'pick-up');
+
+    const tryMoveTo = (nextRow: number, nextCol: number): { success: boolean; hitDoor?: boolean } => {
+      const isOutOfBounds = nextRow < 0 || nextRow >= rows || nextCol < 0 || nextCol >= cols;
+      const isWall = walls.some(w => w.row === nextRow && w.col === nextCol);
+
+      if (isOutOfBounds || isWall) {
+        return { success: false, hitDoor: false };
+      }
+
+      // Check if target is a locked door
+      const isDoor = doors.some(d => d.row === nextRow && d.col === nextCol);
+      if (isDoor) {
+        const doorCoord = `${nextRow}-${nextCol}`;
+        if (!curUnlockedDoors.has(doorCoord)) {
+          // Check if we have an unused key
+          if (curKeys.size > curUnlockedDoors.size) {
+            // Unlock door!
+            curUnlockedDoors.add(doorCoord);
+          } else {
+            // Door is locked and no keys
+            return { success: false, hitDoor: true };
+          }
+        }
+      }
+
+      curRow = nextRow;
+      curCol = nextCol;
+      curVisited.add(`${curRow}-${curCol}`);
+
+      // Auto-collect key if stepped on
+      const isKeyCell = keys.some(k => k.row === curRow && k.col === curCol);
+      if (isKeyCell) {
+        curKeys.add(`${curRow}-${curCol}`);
+      }
+
+      // Auto-collect collectible if no explicit pick-up block
+      if (!hasPickUpBlock && collectibles.some(c => c.row === curRow && c.col === curCol)) {
+        curCollected.add(`${curRow}-${curCol}`);
+      }
+
+      return { success: true };
+    };
 
     for (let i = 0; i < blocks.length; i++) {
       const block = blocks[i];
@@ -116,28 +222,31 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
         const nextRow = curRow + dr;
         const nextCol = curCol + dc;
 
-        const isWall = walls.some(w => w.row === nextRow && w.col === nextCol);
-        const isOutOfBounds = nextRow < 0 || nextRow >= rows || nextCol < 0 || nextCol >= cols;
+        const res = tryMoveTo(nextRow, nextCol);
 
-        if (isWall || isOutOfBounds) {
+        if (!res.success) {
           states.push({
             row: curRow,
             col: curCol,
             direction: curDir,
             visited: Array.from(curVisited),
             collected: Array.from(curCollected),
+            keys: Array.from(curKeys),
+            unlockedDoors: Array.from(curUnlockedDoors),
             hitWall: true,
+            hitDoor: res.hitDoor,
+            soundEvent: 'wall',
           });
         } else {
-          curRow = nextRow;
-          curCol = nextCol;
-          curVisited.add(`${curRow}-${curCol}`);
+          // Determine audio cue
+          let soundCue: 'step' | 'coin' | 'key' | 'door' = 'step';
+          const atKey = keys.some(k => k.row === curRow && k.col === curCol);
+          const atDoor = doors.some(d => d.row === curRow && d.col === curCol);
+          const atCoin = collectibles.some(c => c.row === curRow && c.col === curCol);
 
-          // If this cell has a collectible and no pick-up block exists, auto-collect
-          const hasPickUpBlock = activity.availableBlocks.some(b => b.type === 'pick-up');
-          if (!hasPickUpBlock && collectibles.some(c => c.row === curRow && c.col === curCol)) {
-            curCollected.add(`${curRow}-${curCol}`);
-          }
+          if (atDoor && curUnlockedDoors.has(`${curRow}-${curCol}`)) soundCue = 'door';
+          else if (atKey) soundCue = 'key';
+          else if (atCoin && !hasPickUpBlock) soundCue = 'coin';
 
           states.push({
             row: curRow,
@@ -145,6 +254,9 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
             direction: curDir,
             visited: Array.from(curVisited),
             collected: Array.from(curCollected),
+            keys: Array.from(curKeys),
+            unlockedDoors: Array.from(curUnlockedDoors),
+            soundEvent: soundCue,
           });
         }
       } else if (block.type === 'turn-right') {
@@ -155,6 +267,9 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
           direction: curDir,
           visited: Array.from(curVisited),
           collected: Array.from(curCollected),
+          keys: Array.from(curKeys),
+          unlockedDoors: Array.from(curUnlockedDoors),
+          soundEvent: 'turn',
         });
       } else if (block.type === 'turn-left') {
         curDir = (curDir + 3) % 4;
@@ -164,6 +279,9 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
           direction: curDir,
           visited: Array.from(curVisited),
           collected: Array.from(curCollected),
+          keys: Array.from(curKeys),
+          unlockedDoors: Array.from(curUnlockedDoors),
+          soundEvent: 'turn',
         });
       } else if (block.type === 'repeat') {
         const repeatCount = (block as any).repeatCount || 2;
@@ -174,24 +292,22 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
             const dc = [1, 0, -1, 0][curDir];
             const nextRow = curRow + dr;
             const nextCol = curCol + dc;
-            const isWall = walls.some(w => w.row === nextRow && w.col === nextCol);
-            const isOutOfBounds = nextRow < 0 || nextRow >= rows || nextCol < 0 || nextCol >= cols;
 
-            if (!isWall && !isOutOfBounds) {
-              curRow = nextRow;
-              curCol = nextCol;
-              curVisited.add(`${curRow}-${curCol}`);
-              const hasPickUpBlock = activity.availableBlocks.some(b => b.type === 'pick-up');
-              if (!hasPickUpBlock && collectibles.some(c => c.row === curRow && c.col === curCol)) {
-                curCollected.add(`${curRow}-${curCol}`);
-              }
+            const res = tryMoveTo(nextRow, nextCol);
+            if (!res.success) {
               states.push({
                 row: curRow,
                 col: curCol,
                 direction: curDir,
                 visited: Array.from(curVisited),
                 collected: Array.from(curCollected),
+                keys: Array.from(curKeys),
+                unlockedDoors: Array.from(curUnlockedDoors),
+                hitWall: true,
+                hitDoor: res.hitDoor,
+                soundEvent: 'wall',
               });
+              break;
             } else {
               states.push({
                 row: curRow,
@@ -199,16 +315,23 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
                 direction: curDir,
                 visited: Array.from(curVisited),
                 collected: Array.from(curCollected),
-                hitWall: true,
+                keys: Array.from(curKeys),
+                unlockedDoors: Array.from(curUnlockedDoors),
+                soundEvent: 'step',
               });
-              break;
             }
           }
-          i++; // skip consumed inner block
+          i++; // consumed repeated block
         }
       } else if (block.type === 'pick-up') {
+        let sound: 'coin' | 'key' | 'step' = 'step';
         if (collectibles.some(c => c.row === curRow && c.col === curCol)) {
           curCollected.add(`${curRow}-${curCol}`);
+          sound = 'coin';
+        }
+        if (keys.some(k => k.row === curRow && k.col === curCol)) {
+          curKeys.add(`${curRow}-${curCol}`);
+          sound = 'key';
         }
         states.push({
           row: curRow,
@@ -216,6 +339,9 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
           direction: curDir,
           visited: Array.from(curVisited),
           collected: Array.from(curCollected),
+          keys: Array.from(curKeys),
+          unlockedDoors: Array.from(curUnlockedDoors),
+          soundEvent: sound,
         });
       } else if (block.type === 'if-wall') {
         const dr = [0, 1, 0, -1][curDir];
@@ -228,20 +354,18 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
           const nextBlock = blocks[i + 1];
 
           if (isTurnLeft) {
-            curDir = (curDir + 3) % 4; // Turn Left (faces UP)
+            curDir = (curDir + 3) % 4;
           } else if (isTurnRight) {
             curDir = (curDir + 1) % 4;
           } else if (nextBlock && (nextBlock.type === 'turn-right' || nextBlock.type === 'turn-left')) {
             if (nextBlock.type === 'turn-right') {
-              if (curRow >= rows - 1) curDir = (curDir + 3) % 4;
-              else curDir = (curDir + 1) % 4;
+              curDir = curRow >= rows - 1 ? (curDir + 3) % 4 : (curDir + 1) % 4;
             } else {
               curDir = (curDir + 3) % 4;
             }
             i++;
           } else {
-            if (curRow >= rows - 1) curDir = (curDir + 3) % 4;
-            else curDir = (curDir + 1) % 4;
+            curDir = curRow >= rows - 1 ? (curDir + 3) % 4 : (curDir + 1) % 4;
           }
 
           states.push({
@@ -250,12 +374,68 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
             direction: curDir,
             visited: Array.from(curVisited),
             collected: Array.from(curCollected),
+            keys: Array.from(curKeys),
+            unlockedDoors: Array.from(curUnlockedDoors),
+            soundEvent: 'turn',
           });
         }
       }
     }
 
     return states;
+  };
+
+  const playStepSound = (step: RobotState) => {
+    if (step.hitWall) {
+      sfx.wall();
+    } else if (step.soundEvent === 'key') {
+      sfx.key();
+    } else if (step.soundEvent === 'door') {
+      sfx.door();
+    } else if (step.soundEvent === 'coin') {
+      sfx.coin();
+    } else if (step.soundEvent === 'turn') {
+      sfx.turn();
+    } else {
+      sfx.step();
+    }
+  };
+
+  const computeStars = (currentDropZone: Block[], totalBumps: number): StarBreakdown => {
+    const totalCoins = activity.collectibles?.length || 0;
+    const totalKeys = activity.keys?.length || 0;
+    const totalTreasures = totalCoins + totalKeys;
+
+    let star1 = true;
+    let star2 = false;
+    let star2Label = '';
+
+    if (totalTreasures > 0) {
+      const collectedTreasures = collectedItems.size + collectedKeys.size;
+      star2 = collectedTreasures >= totalTreasures;
+      star2Label = `Collected all treasures (${collectedTreasures}/${totalTreasures})`;
+    } else {
+      star2 = totalBumps === 0;
+      star2Label = star2 ? 'Flawless navigation (0 wall bumps)' : 'Avoid bumping into walls';
+    }
+
+    const targetBlocks = activity.maxBlocksStar || (activity.correctSequence?.length ? activity.correctSequence.length : 5);
+    const star3 = currentDropZone.length <= targetBlocks;
+    const star3Label = `Code efficiency challenge (Used ${currentDropZone.length} / ≤ ${targetBlocks} blocks)`;
+
+    let count = 1;
+    if (star2) count++;
+    if (star3) count++;
+
+    return {
+      stars: count,
+      star1,
+      star2,
+      star3,
+      star2Label,
+      star3Label,
+      targetBlocks,
+    };
   };
 
   const isSequenceCorrect = (currentDropZone: Block[]) => {
@@ -292,23 +472,31 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
       ? lastStep.row === activity.endPosition.row && lastStep.col === activity.endPosition.col
       : false;
 
-    const collectedAll = !activity.collectibles || activity.collectibles.length === 0
-      ? true
-      : lastStep.collected.length >= activity.collectibles.length;
+    const totalCoins = activity.collectibles?.length || 0;
+    const totalKeys = activity.keys?.length || 0;
+    const collectedAll = (totalCoins === 0 || lastStep.collected.length >= totalCoins) &&
+                         (totalKeys === 0 || lastStep.keys.length >= totalKeys);
 
     const isFreePlay = !activity.correctSequence || activity.correctSequence.length === 0;
     const isCorrect = isSequenceCorrect(currentDropZone);
 
-    if (isFreePlay) {
-      if ((reachedGoal && lastStep.collected.length >= 1) || isCorrect) {
-        setResult('success');
-        onComplete();
+    const successCondition = isFreePlay
+      ? (reachedGoal && (totalCoins === 0 || lastStep.collected.length >= 1)) || isCorrect
+      : (reachedGoal && collectedAll) || isCorrect;
+
+    if (successCondition) {
+      setResult('success');
+      sfx.success();
+
+      const stars = computeStars(currentDropZone, bumpCount);
+      setStarResult(stars);
+
+      // Procedural star fanfare pings
+      for (let s = 1; s <= stars.stars; s++) {
+        setTimeout(() => sfx.star(), 350 + s * 220);
       }
-    } else {
-      if ((reachedGoal && collectedAll) || isCorrect) {
-        setResult('success');
-        onComplete();
-      }
+
+      onComplete();
     }
   };
 
@@ -318,12 +506,12 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
     setDropZone(newDropZone);
     setPalette(newPalette);
     setFeedbackMessage(null);
+    sfx.drop();
 
     const prevStates = computeSimulationSteps(dropZone);
     const newStates = computeSimulationSteps(newDropZone);
 
     if (newStates.length > prevStates.length) {
-      // Robot moves forward through the new steps
       setIsRunning(true);
       const newSteps = newStates.slice(prevStates.length);
 
@@ -333,9 +521,15 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
           setDirection(step.direction);
           setVisitedCells(new Set(step.visited));
           setCollectedItems(new Set(step.collected));
+          setCollectedKeys(new Set(step.keys));
+          setUnlockedDoors(new Set(step.unlockedDoors));
+
+          playStepSound(step);
+
           if (step.hitWall) {
             setHitWall(true);
-            setFeedbackMessage('💥 Wall ahead! The robot couldn\'t move there.');
+            setBumpCount(prev => prev + 1);
+            setFeedbackMessage(step.hitDoor ? '🔒 Locked door! Collect a key 🗝️ first.' : '💥 Wall ahead! The robot couldn\'t move there.');
             const bumpTimer = setTimeout(() => setHitWall(false), 700);
             animationTimeouts.current.push(bumpTimer);
           }
@@ -351,12 +545,13 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
       }, totalTime + 60);
       animationTimeouts.current.push(endTimer);
     } else {
-      // Block was removed or reordered — instantly rewind to the last state
       const lastStep = newStates[newStates.length - 1];
       setCharacterPos({ row: lastStep.row, col: lastStep.col });
       setDirection(lastStep.direction);
       setVisitedCells(new Set(lastStep.visited));
       setCollectedItems(new Set(lastStep.collected));
+      setCollectedKeys(new Set(lastStep.keys));
+      setUnlockedDoors(new Set(lastStep.unlockedDoors));
       setIsRunning(false);
       checkAutoGoalReached(lastStep, newDropZone);
     }
@@ -372,7 +567,6 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
     if (!draggedItem.current) return;
 
     const { block, source, index } = draggedItem.current;
-
     if (source === 'palette') {
       const newPalette = palette.filter((_, i) => i !== index);
       const newDropZone = [...dropZone, block];
@@ -386,7 +580,6 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
     if (!draggedItem.current) return;
 
     const { block, source, index } = draggedItem.current;
-
     if (source === 'dropzone') {
       const newDropZone = dropZone.filter((_, i) => i !== index);
       const newPalette = [...palette, block];
@@ -395,7 +588,6 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
     draggedItem.current = null;
   };
 
-  // Click-to-add / click-to-remove for tap & mobile accessibility
   const addBlock = (block: Block, index: number) => {
     if (isRunning || result === 'success') return;
     const newPalette = palette.filter((_, i) => i !== index);
@@ -416,16 +608,19 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
     setPalette([...activity.availableBlocks]);
     setDropZone([]);
     setResult(null);
+    setStarResult(null);
     setFeedbackMessage(null);
     const start = activity.startPosition || { row: 0, col: 0 };
     setCharacterPos(start);
     setDirection(0);
     setVisitedCells(new Set([`${start.row}-${start.col}`]));
     setCollectedItems(new Set());
+    setCollectedKeys(new Set());
+    setUnlockedDoors(new Set());
+    setBumpCount(0);
     setIsRunning(false);
   };
 
-  // Replays full program from start to finish
   const runFullProgram = () => {
     if (dropZone.length === 0 || isRunning || result === 'success') return;
     clearPendingAnimations();
@@ -438,6 +633,8 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
     setDirection(0);
     setVisitedCells(new Set([`${start.row}-${start.col}`]));
     setCollectedItems(new Set());
+    setCollectedKeys(new Set());
+    setUnlockedDoors(new Set());
 
     const allStates = computeSimulationSteps(dropZone);
     allStates.slice(1).forEach((step, idx) => {
@@ -446,9 +643,15 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
         setDirection(step.direction);
         setVisitedCells(new Set(step.visited));
         setCollectedItems(new Set(step.collected));
+        setCollectedKeys(new Set(step.keys));
+        setUnlockedDoors(new Set(step.unlockedDoors));
+
+        playStepSound(step);
+
         if (step.hitWall) {
           setHitWall(true);
-          setFeedbackMessage('💥 Wall ahead! The robot couldn\'t move there.');
+          setBumpCount(prev => prev + 1);
+          setFeedbackMessage(step.hitDoor ? '🔒 Locked door! Collect a key 🗝️ first.' : '💥 Wall ahead! The robot couldn\'t move there.');
           const bumpTimer = setTimeout(() => setHitWall(false), 700);
           animationTimeouts.current.push(bumpTimer);
         }
@@ -476,9 +679,81 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
     animationTimeouts.current.push(endTimer);
   };
 
+  // Theme styling tokens
+  const themeClass = `theme-${theme}`;
+
   return (
-    <div>
-      <div className="alert alert-info mb-lg">{activity.instructions}</div>
+    <div className={`activity-wrapper ${themeClass}`}>
+      {/* Top action bar: Instructions + Audio Mute + Hints Toggle */}
+      <div className="activity-top-bar mb-md">
+        <div className="alert alert-info flex-1 m-0">
+          <span>{activity.instructions}</span>
+        </div>
+        <div className="activity-controls-bar">
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            onClick={toggleSound}
+            title={muted ? 'Unmute procedural sound effects' : 'Mute sound effects'}
+            style={{ fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+          >
+            {muted ? '🔇 Muted' : '🔊 Sound'}
+          </button>
+          {activity.hints && activity.hints.length > 0 && (
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={() => setShowHints(!showHints)}
+              style={{
+                fontSize: '0.9rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                color: showHints ? 'var(--color-primary)' : undefined,
+              }}
+            >
+              💡 Hints ({activity.hints.length})
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Progressive Hints Accordion */}
+      {showHints && activity.hints && activity.hints.length > 0 && (
+        <div className="card mb-md hints-panel" style={{ border: '2px solid #fbc02d', background: 'rgba(251, 192, 45, 0.08)' }}>
+          <div className="flex-between mb-xs">
+            <h4 style={{ margin: 0, color: '#f57f17', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              💡 Coding Hints (Hint {revealedHints} of {activity.hints.length})
+            </h4>
+            {revealedHints < activity.hints.length && (
+              <button
+                type="button"
+                className="btn btn-sm btn-ghost"
+                onClick={() => setRevealedHints(prev => Math.min(prev + 1, activity.hints!.length))}
+                style={{ fontSize: '0.8rem', color: '#f57f17', fontWeight: 600 }}
+              >
+                👉 Reveal Next Hint ({revealedHints + 1}/{activity.hints.length})
+              </button>
+            )}
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            {activity.hints.slice(0, revealedHints).map((hint, hIdx) => (
+              <div
+                key={hIdx}
+                style={{
+                  padding: '8px 12px',
+                  background: 'var(--color-surface)',
+                  borderRadius: 'var(--radius-sm)',
+                  borderLeft: '3px solid #fbc02d',
+                  fontSize: '0.9rem',
+                }}
+              >
+                <strong>Hint {hIdx + 1}:</strong> {hint}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {feedbackMessage && (
         <div className="alert alert-warning mb-md" style={{ textAlign: 'center' }}>
@@ -491,7 +766,7 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
         <div className="text-center mb-lg">
           <div className="character-grid-scroll">
             <div
-              className={`character-grid ${hitWall ? 'shake' : ''}`}
+              className={`character-grid ${themeClass} ${hitWall ? 'shake' : ''}`}
               style={{
                 gridTemplateColumns: `repeat(${activity.gridSize.cols}, 60px)`,
                 gridTemplateRows: `repeat(${activity.gridSize.rows}, 60px)`,
@@ -508,13 +783,20 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
                 const isCollectible =
                   activity.collectibles?.some(c => c.row === row && c.col === col) &&
                   !collectedItems.has(`${row}-${col}`);
+                const isKey =
+                  activity.keys?.some(k => k.row === row && k.col === col) &&
+                  !collectedKeys.has(`${row}-${col}`);
+                const isDoor = activity.doors?.some(d => d.row === row && d.col === col);
+                const isDoorUnlocked = unlockedDoors.has(`${row}-${col}`);
 
                 return (
                   <div
                     key={i}
                     className={`grid-cell ${isWall ? 'wall' : ''} ${isVisited ? 'visited' : ''} ${
                       isCharacter ? 'character' : ''
-                    } ${isGoal && !isCharacter ? 'goal' : ''} ${isCollectible ? 'collectible' : ''}`}
+                    } ${isGoal && !isCharacter ? 'goal' : ''} ${isCollectible ? 'collectible' : ''} ${
+                      isKey ? 'key-cell' : ''
+                    } ${isDoor ? (isDoorUnlocked ? 'door-open' : 'door-locked') : ''}`}
                     style={{
                       position: 'relative',
                       border: isCharacter && isGoal ? '3px solid var(--color-accent-green)' : undefined,
@@ -539,7 +821,7 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
                             transition: 'transform 0.25s ease',
                           }}
                         >
-                          {activity.characterEmoji || '🤖'}
+                          {charEmoji}
                         </span>
                         {/* Facing direction badge */}
                         <span
@@ -574,11 +856,19 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
                         </span>
                       </div>
                     ) : isGoal ? (
-                      <span style={{ fontSize: '2rem' }}>{activity.goalEmoji || '⭐'}</span>
+                      <span style={{ fontSize: '2rem' }}>{goalEmoji}</span>
+                    ) : isKey ? (
+                      <span style={{ fontSize: '1.5rem', animation: 'bounce 1s infinite alternate' }} title="Key 🗝️">
+                        🗝️
+                      </span>
+                    ) : isDoor ? (
+                      <span style={{ fontSize: '1.5rem' }} title={isDoorUnlocked ? 'Unlocked Door 🔓' : 'Locked Door 🚪'}>
+                        {isDoorUnlocked ? '🔓' : '🚪'}
+                      </span>
                     ) : isCollectible ? (
                       <span style={{ fontSize: '1.5rem' }}>🪙</span>
                     ) : isWall ? (
-                      <span style={{ fontSize: '1.5rem', opacity: 0.8 }}>🧱</span>
+                      <span style={{ fontSize: '1.5rem', opacity: 0.85 }}>{wallEmoji}</span>
                     ) : (
                       ''
                     )}
@@ -587,11 +877,27 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
               })}
             </div>
           </div>
-          {activity.collectibles && activity.collectibles.length > 0 && (
-            <p className="text-muted mt-sm">
-              🪙 Coins collected: {collectedItems.size}/{activity.collectibles.length}
-            </p>
-          )}
+
+          {/* Item counter badges */}
+          <div style={{ display: 'flex', gap: 'var(--space-md)', justifyContent: 'center', flexWrap: 'wrap' }} className="mt-sm">
+            {activity.collectibles && activity.collectibles.length > 0 && (
+              <span className="badge-inventory" style={{ padding: '4px 12px', background: 'var(--color-surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border-light)', fontSize: '0.85rem' }}>
+                🪙 Coins: {collectedItems.size} / {activity.collectibles.length}
+              </span>
+            )}
+            {activity.keys && activity.keys.length > 0 && (
+              <span className="badge-inventory" style={{ padding: '4px 12px', background: 'var(--color-surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border-light)', fontSize: '0.85rem' }}>
+                🗝️ Keys: {collectedKeys.size} / {activity.keys.length}
+              </span>
+            )}
+            {activity.doors && activity.doors.length > 0 && (
+              <span className="badge-inventory" style={{ padding: '4px 12px', background: 'var(--color-surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border-light)', fontSize: '0.85rem' }}>
+                🚪 Doors Unlocked: {unlockedDoors.size} / {activity.doors.length}
+              </span>
+            )}
+          </div>
+
+          {/* Objective checklist */}
           {activity.objectives && activity.objectives.length > 0 && (
             <div
               className="mt-sm"
@@ -601,7 +907,13 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
                 let met = false;
                 const lower = obj.toLowerCase();
 
-                if (lower.includes('coin')) {
+                if (lower.includes('key')) {
+                  const target = activity.keys?.length || 1;
+                  met = collectedKeys.size >= target;
+                } else if (lower.includes('door')) {
+                  const target = activity.doors?.length || 1;
+                  met = unlockedDoors.size >= target;
+                } else if (lower.includes('coin')) {
                   const match = lower.match(/\b(\d+)\s+coin/);
                   const targetCoins = match ? parseInt(match[1]) : 1;
                   met = collectedItems.size >= targetCoins;
@@ -654,7 +966,7 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
           onDrop={handleDropOnPalette}
         >
           {palette.length === 0 && (
-            <div className="drop-zone-placeholder">All blocks used! ✓</div>
+            <div className="drop-zone-placeholder">All blocks placed! ✓</div>
           )}
           {palette.map((block, i) => (
             <div
@@ -749,7 +1061,7 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
         </div>
       </div>
 
-      {/* Actions */}
+      {/* Action Buttons */}
       <div className="flex gap-md">
         <button
           className="btn btn-primary"
@@ -763,35 +1075,95 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
         </button>
       </div>
 
-      {result === 'success' && (
+      {/* Success Celebration Card with 3-Star Rating */}
+      {result === 'success' && starResult && (
         <div
-          className="alert alert-success mt-md"
+          className="card alert-success mt-md text-center p-lg celebration-box"
           style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: 'var(--space-sm)',
-            textAlign: 'center',
-            padding: 'var(--space-lg)',
+            background: 'linear-gradient(135deg, rgba(46, 125, 50, 0.12), rgba(0, 184, 148, 0.18))',
+            border: '2px solid var(--color-accent-green)',
+            borderRadius: 'var(--radius-lg)',
+            boxShadow: '0 8px 24px rgba(0, 184, 148, 0.2)',
           }}
         >
-          <div style={{ fontSize: '1.2rem', fontWeight: 700 }}>
-            🎉 Great Job! Activity Completed!
+          <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--color-success)' }}>
+            🎉 Quest Completed!
           </div>
-          <p style={{ margin: 0, color: 'var(--color-text-muted)' }}>
-            You can keep playing and testing new paths, or take the quiz when ready!
+
+          {/* 3 Stars Display */}
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'center',
+              gap: '12px',
+              fontSize: '2.4rem',
+              margin: '12px 0 6px 0',
+            }}
+          >
+            <span style={{ filter: 'drop-shadow(0 2px 8px rgba(255,215,0,0.6))' }}>⭐</span>
+            <span style={{ opacity: starResult.star2 ? 1 : 0.25, filter: starResult.star2 ? 'drop-shadow(0 2px 8px rgba(255,215,0,0.6))' : undefined }}>
+              ⭐
+            </span>
+            <span style={{ opacity: starResult.star3 ? 1 : 0.25, filter: starResult.star3 ? 'drop-shadow(0 2px 8px rgba(255,215,0,0.6))' : undefined }}>
+              ⭐
+            </span>
+          </div>
+
+          <div style={{ fontSize: '1rem', fontWeight: 700, color: '#fbc02d', marginBottom: '12px' }}>
+            {starResult.stars === 3
+              ? '🌟 Master Coder! 3/3 Stars Earned!'
+              : starResult.stars === 2
+              ? '⭐ Great Job! 2/3 Stars Earned!'
+              : '⭐ Level Cleared! 1/3 Stars Earned!'}
+          </div>
+
+          {/* Star Challenges Details */}
+          <div
+            style={{
+              display: 'inline-flex',
+              flexDirection: 'column',
+              gap: '6px',
+              textAlign: 'left',
+              background: 'var(--color-surface)',
+              padding: '10px 18px',
+              borderRadius: 'var(--radius-md)',
+              border: '1px solid var(--color-border-light)',
+              fontSize: '0.85rem',
+              marginBottom: '16px',
+            }}
+          >
+            <div style={{ color: 'var(--color-success)', fontWeight: 600 }}>
+              ⭐ Star 1: Reached the goal safely ✓
+            </div>
+            <div style={{ color: starResult.star2 ? 'var(--color-success)' : 'var(--color-text-dim)', fontWeight: 600 }}>
+              {starResult.star2 ? '⭐' : '⚪'} Star 2: {starResult.star2Label}
+            </div>
+            <div style={{ color: starResult.star3 ? 'var(--color-success)' : 'var(--color-text-dim)', fontWeight: 600 }}>
+              {starResult.star3 ? '⭐' : '⚪'} Star 3: {starResult.star3Label}
+            </div>
+          </div>
+
+          <p style={{ margin: '0 0 14px 0', color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>
+            Ready to test your knowledge, or keep experimenting with new block combinations?
           </p>
+
           {onGoToQuiz && (
             <button
-              className="btn btn-success btn-md mt-xs"
+              className="btn btn-success btn-lg"
               onClick={onGoToQuiz}
-              style={{ boxShadow: 'var(--shadow-btn)' }}
+              style={{
+                boxShadow: '0 4px 14px rgba(46, 125, 50, 0.4)',
+                padding: '10px 24px',
+                fontSize: '1.05rem',
+                fontWeight: 700,
+              }}
             >
-              📝 Take Quiz →
+              📝 Proceed to Quiz →
             </button>
           )}
         </div>
       )}
+
       {result === 'error' && (
         <div className="alert alert-error mt-md" style={{ textAlign: 'center' }}>
           🤔 Not quite at the goal yet. Try rearranging the blocks!

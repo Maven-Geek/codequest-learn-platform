@@ -171,6 +171,84 @@ router.post('/quizzes', authMiddleware, requireRole('admin'), async (req: Reques
   }
 });
 
+// PUT /api/lessons/:id/quiz — Admin: create or update quiz for a lesson (atomic upsert)
+router.put('/lessons/:id/quiz', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
+  try {
+    const lessonId = parseInt(req.params.id as string, 10);
+    const { passing_score, questions } = req.body;
+
+    if (isNaN(lessonId)) {
+      res.status(400).json({ success: false, error: 'Valid lesson id required' });
+      return;
+    }
+
+    // Check if a quiz exists for this lesson
+    const existing = await query('SELECT id FROM quizzes WHERE lesson_id = $1', [lessonId]);
+    let quizId: number;
+
+    if (existing.rows.length > 0) {
+      quizId = existing.rows[0].id;
+      if (passing_score !== undefined) {
+        await query('UPDATE quizzes SET passing_score = $1 WHERE id = $2', [passing_score, quizId]);
+      }
+    } else {
+      const result = await query(
+        'INSERT INTO quizzes (lesson_id, passing_score) VALUES ($1, $2) RETURNING id',
+        [lessonId, passing_score ?? 70]
+      );
+      quizId = result.rows[0].id;
+    }
+
+    // Replace questions if provided
+    if (questions && Array.isArray(questions)) {
+      // Clear existing questions
+      await query('DELETE FROM quiz_questions WHERE quiz_id = $1', [quizId]);
+
+      // Insert new questions
+      for (let i = 0; i < questions.length; i++) {
+        const q = questions[i];
+        if (q.question_text && Array.isArray(q.options) && q.options.length > 0) {
+          await query(
+            'INSERT INTO quiz_questions (quiz_id, question_text, options, order_index) VALUES ($1, $2, $3, $4)',
+            [quizId, q.question_text, JSON.stringify(q.options), i + 1]
+          );
+        }
+      }
+    }
+
+    res.json({ success: true, data: { id: quizId, message: 'Quiz saved successfully' } });
+  } catch (error: any) {
+    console.error('Upsert quiz error:', error);
+    res.status(500).json({ success: false, error: 'Failed to save quiz' });
+  }
+});
+
+// DELETE /api/lessons/:id/quiz — Admin: delete quiz for a lesson
+router.delete('/lessons/:id/quiz', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
+  try {
+    const lessonId = parseInt(req.params.id as string, 10);
+    if (isNaN(lessonId)) {
+      res.status(400).json({ success: false, error: 'Valid lesson id required' });
+      return;
+    }
+
+    const existing = await query('SELECT id FROM quizzes WHERE lesson_id = $1', [lessonId]);
+    if (existing.rows.length === 0) {
+      res.status(404).json({ success: false, error: 'Quiz not found for this lesson' });
+      return;
+    }
+
+    const quizId = existing.rows[0].id;
+    await query('DELETE FROM quiz_questions WHERE quiz_id = $1', [quizId]);
+    await query('DELETE FROM quizzes WHERE id = $1', [quizId]);
+
+    res.json({ success: true, message: 'Quiz deleted successfully' });
+  } catch (error: any) {
+    console.error('Delete quiz error:', error);
+    res.status(500).json({ success: false, error: 'Failed to delete quiz' });
+  }
+});
+
 async function checkAndAwardBadges(userId: number, lessonId: number, quizScore: number): Promise<any[]> {
   const badges: any[] = [];
   const awardBadge = async (badgeId: number) => {

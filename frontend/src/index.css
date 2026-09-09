@@ -1094,8 +1094,7 @@ textarea.form-input {
 }
 
 .grid-cell.wall::after {
-  content: '🧱';
-  font-size: 1.5rem;
+  content: '';
 }
 
 .grid-cell.visited {
@@ -1133,6 +1132,105 @@ textarea.form-input {
   50% {
     transform: translateY(-4px) scale(1.12);
     filter: drop-shadow(0 4px 8px rgba(249, 168, 37, 0.7));
+  }
+}
+
+/* Keys & Doors mechanics */
+.grid-cell.key-cell > span {
+  display: inline-block;
+  animation: keyShine 1.5s ease-in-out infinite;
+}
+
+@keyframes keyShine {
+  0%, 100% {
+    transform: rotate(0deg) scale(1);
+    filter: drop-shadow(0 2px 5px rgba(255, 215, 0, 0.6));
+  }
+  50% {
+    transform: rotate(-12deg) scale(1.15);
+    filter: drop-shadow(0 4px 10px rgba(255, 215, 0, 0.9));
+  }
+}
+
+.grid-cell.door-locked {
+  background: rgba(139, 69, 19, 0.15);
+  box-shadow: inset 0 0 10px rgba(139, 69, 19, 0.25);
+  border: 2px dashed rgba(139, 69, 19, 0.5);
+}
+
+.grid-cell.door-open {
+  background: rgba(76, 175, 80, 0.15);
+  box-shadow: inset 0 0 10px rgba(76, 175, 80, 0.25);
+  border: 2px solid rgba(76, 175, 80, 0.4);
+}
+
+/* Environment Themes */
+.character-grid.theme-space {
+  background: radial-gradient(circle, #181938 0%, #0c0d1a 100%);
+  border: 3px solid #3d4680;
+  box-shadow: 0 0 25px rgba(61, 70, 128, 0.4);
+}
+.character-grid.theme-space .grid-cell {
+  background: rgba(30, 33, 64, 0.7);
+  border: 1px solid rgba(80, 95, 170, 0.3);
+}
+.character-grid.theme-space .grid-cell.visited {
+  background: rgba(0, 210, 255, 0.18);
+}
+
+.character-grid.theme-castle {
+  background: linear-gradient(135deg, #2b2420 0%, #1e1916 100%);
+  border: 3px solid #6d5b4e;
+  box-shadow: 0 0 25px rgba(109, 91, 78, 0.4);
+}
+.character-grid.theme-castle .grid-cell {
+  background: rgba(54, 46, 41, 0.8);
+  border: 1px solid rgba(130, 110, 95, 0.3);
+}
+.character-grid.theme-castle .grid-cell.visited {
+  background: rgba(255, 179, 0, 0.18);
+}
+
+.character-grid.theme-forest {
+  background: linear-gradient(135deg, #132415 0%, #0c170d 100%);
+  border: 3px solid #365c3b;
+  box-shadow: 0 0 25px rgba(54, 92, 59, 0.4);
+}
+.character-grid.theme-forest .grid-cell {
+  background: rgba(27, 51, 31, 0.8);
+  border: 1px solid rgba(76, 175, 80, 0.3);
+}
+.character-grid.theme-forest .grid-cell.visited {
+  background: rgba(76, 175, 80, 0.22);
+}
+
+/* Activity Controls & Hints */
+.activity-top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+}
+
+.activity-controls-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.hints-panel {
+  animation: fadeInDown 0.3s ease;
+}
+
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 

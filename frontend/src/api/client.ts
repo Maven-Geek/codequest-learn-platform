@@ -51,6 +51,10 @@ export const api = {
   submitQuiz: (quizId: number, answers: any[]) =>
     request<any>(`/quizzes/${quizId}/submit`, { method: 'POST', body: JSON.stringify({ answers }) }),
   createQuiz: (data: any) => request<any>('/quizzes', { method: 'POST', body: JSON.stringify(data) }),
+  upsertLessonQuiz: (lessonId: number, data: any) =>
+    request<any>(`/lessons/${lessonId}/quiz`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteLessonQuiz: (lessonId: number) =>
+    request<any>(`/lessons/${lessonId}/quiz`, { method: 'DELETE' }),
 
   // Progress
   getProgress: () => request<any>('/progress'),
