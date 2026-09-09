@@ -86,7 +86,7 @@ export default function ParentDashboard() {
           </div>
 
           {/* Your Explorers */}
-          <div style={{ display: 'grid', gridTemplateColumns: children.length > 0 ? '2fr 1fr' : '1fr', gap: 'var(--space-xl)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: children.length > 0 ? '2fr 1fr' : '1fr', gap: 'var(--space-xl)' }} className="two-col-responsive">
             <div className="card" style={{ padding: 'var(--space-xl)' }}>
               <div className="flex-between mb-lg">
                 <h3 style={{ fontFamily: 'var(--font-display)' }}>Your Explorers</h3>

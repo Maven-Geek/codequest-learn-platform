@@ -185,6 +185,7 @@ export default function DragDropActivity({ activity, onComplete }: DragDropActiv
       {/* Grid visualization */}
       {activity.gridSize && (
         <div className="text-center mb-lg">
+          <div className="character-grid-scroll">
           <div className="character-grid" style={{
             gridTemplateColumns: `repeat(${activity.gridSize.cols}, 60px)`,
             gridTemplateRows: `repeat(${activity.gridSize.rows}, 60px)`,
@@ -207,6 +208,7 @@ export default function DragDropActivity({ activity, onComplete }: DragDropActiv
                 </div>
               );
             })}
+          </div>
           </div>
           {activity.collectibles && (
             <p className="text-muted mt-sm">🪙 Coins collected: {collectedItems.size}/{activity.collectibles.length}</p>

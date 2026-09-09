@@ -233,7 +233,7 @@ export default function UserManager() {
         marginBottom: 'var(--space-xl)',
         borderBottom: '2px solid var(--color-outline-variant)',
         paddingBottom: '0',
-      }}>
+      }} className="tab-nav-scroll">
         {[
           { key: 'users' as TabType, label: '👥 All Users', icon: '' },
           { key: 'teacher-assign' as TabType, label: '👩‍🏫 Assign to Teachers', icon: '' },

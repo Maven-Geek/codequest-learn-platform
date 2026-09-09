@@ -138,7 +138,7 @@ export default function LevelMapPage() {
         )}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: selectedLevel ? '1fr 1fr' : '1fr', gap: 'var(--space-xl)' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: selectedLevel ? '1fr 1fr' : '1fr', gap: 'var(--space-xl)' }} className="two-col-responsive">
         {/* Level Map */}
         <div>
           <div className="level-map" style={{ padding: 0 }}>

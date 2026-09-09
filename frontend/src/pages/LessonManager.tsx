@@ -160,7 +160,7 @@ export default function LessonManager() {
       </div>
 
       {/* Two-column layout */}
-      <div style={{ display: 'grid', gridTemplateColumns: showForm ? '1fr 1fr' : '1fr', gap: 'var(--space-xl)' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: showForm ? '1fr 1fr' : '1fr', gap: 'var(--space-xl)' }} className="two-col-responsive">
 
         {/* Current Lessons */}
         <div className="card" style={{ padding: 'var(--space-xl)' }}>
@@ -257,7 +257,7 @@ export default function LessonManager() {
               />
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-md)' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-md)' }} className="two-col-responsive">
               <div className="form-group">
                 <label className="form-label">Level</label>
                 <select className="form-select" value={formData.level_id} onChange={(e) => update('level_id', parseInt(e.target.value))}>
@@ -299,7 +299,7 @@ export default function LessonManager() {
               />
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-md)' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-md)' }} className="two-col-responsive">
               <div className="form-group">
                 <label className="form-label">Order</label>
                 <input

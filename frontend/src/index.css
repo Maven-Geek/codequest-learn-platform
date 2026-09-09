@@ -7,6 +7,11 @@
 /* ---- Google Fonts fallback ---- */
 @import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&family=Be+Vietnam+Pro:wght@300;400;500;600;700&display=swap');
 
+/* ---- Global box-sizing reset (prevents padding from causing overflow) ---- */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
 /* ---- CSS Custom Properties ---- */
 :root {
   /* Primary palette (Sky Blue) */
@@ -121,6 +126,7 @@
 html {
   font-size: 16px;
   scroll-behavior: smooth;
+  overflow-x: hidden; /* Prevent horizontal page scroll at the root level */
 }
 
 body {
@@ -353,7 +359,8 @@ h4 { font-size: 1.25rem; }
   flex-direction: column;
   min-width: 0; /* Prevents flexbox children from breaking container width */
   max-width: calc(100vw - var(--sidebar-width)); /* Account for fixed sidebar */
-  overflow-x: hidden; /* Prevent any child from causing horizontal scroll */
+  width: calc(100vw - var(--sidebar-width));
+  overflow-x: clip; /* Clip overflow but allow inner scroll containers (e.g. table-responsive) to still scroll */
 }
 
 /* ---- Top Bar ---- */
@@ -1059,6 +1066,15 @@ textarea.form-input {
   border: 2px solid var(--color-border-light);
 }
 
+/* Scroll wrapper for grids on mobile — add this around character-grid in JSX */
+.character-grid-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
 .grid-cell {
   width: 60px;
   height: 60px;
@@ -1216,8 +1232,10 @@ textarea.form-input {
 
 .lesson-content {
   max-width: 900px;
+  width: 100%;
   margin: 0 auto;
   padding: var(--space-xl);
+  overflow-x: clip;
 }
 
 .lesson-content h1 {
@@ -1578,6 +1596,8 @@ textarea.form-input {
   background: var(--color-bg-warm);
   border-radius: var(--radius-lg);
   border: 1px solid var(--color-border-light);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .score-bar {
@@ -1653,11 +1673,13 @@ textarea.form-input {
 
 .page-container {
   max-width: 1200px;
+  width: 100%;
   margin: 0 auto;
   padding: var(--space-xl);
   position: relative;
   z-index: 1;
-  overflow-x: hidden; /* Safety net: prevent children from causing horizontal scroll */
+  /* overflow-x: clip allows child .table-responsive to still scroll horizontally */
+  overflow-x: clip;
 }
 
 .page-header {
@@ -2026,16 +2048,28 @@ textarea.form-input {
 
   .main-content {
     margin-left: 0;
-    max-width: 100%; /* Fixes 100vw scrollbar issue */
+    max-width: 100vw; /* Full width on mobile */
+    width: 100vw;
     padding-bottom: 80px; /* space for FAB */
+    overflow-x: clip;
   }
 
   .page-container {
     padding: var(--space-md);
+    width: 100%;
+    max-width: 100%;
   }
 
   .topbar {
     padding: var(--space-sm) var(--space-md);
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+  }
+
+  /* Shrink or hide topbar badges on very small screens */
+  .topbar-badge {
+    font-size: 0.8rem;
+    padding: var(--space-xs) var(--space-sm);
   }
 
   .card {
@@ -2089,6 +2123,7 @@ textarea.form-input {
     flex-direction: column;
   }
 
+  /* Tables: reduce font/padding and ensure the wrapper can scroll */
   .data-table {
     font-size: 0.85rem;
   }
@@ -2098,9 +2133,77 @@ textarea.form-input {
     padding: var(--space-sm);
   }
 
+  /* Ensure table scroll container is not blocked by parent overflow:clip */
+  .table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%;
+  }
+
+  /* Page header: stack title/actions vertically on small screens */
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .page-title {
+    font-size: 1.5rem;
+  }
+
   /* Collapse two-column assignment grids on mobile */
   .assign-grid {
     grid-template-columns: 1fr !important;
+  }
+
+  /* Modal padding on mobile */
+  .modal-overlay {
+    padding: var(--space-sm);
+  }
+
+  .modal-content {
+    padding: var(--space-lg);
+    max-height: 95vh;
+  }
+
+  /* Lesson page */
+  .lesson-content {
+    padding: var(--space-md);
+  }
+
+  /* Level map reduced padding on mobile */
+  .level-map {
+    padding: var(--space-md);
+  }
+
+  /* Character grid: allow horizontal scroll when grid is wider than screen */
+  .character-grid-scroll {
+    justify-content: flex-start;
+  }
+
+  /* Tab navigation bars that use inline flex: allow horizontal scroll */
+  .tab-nav-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    flex-wrap: nowrap;
+  }
+
+  /* Two-column inline grids (LevelMapPage lessons panel, ParentDashboard explorers/focus,
+     LessonManager two-column form): collapse to single column */
+  .two-col-responsive {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Lesson explanation inline tables: make scrollable */
+  .lesson-explanation table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%;
+  }
+
+  /* Enrollment key row in ProfilePage: wrap */
+  .enrollment-key-row {
+    flex-wrap: wrap;
   }
 }
 
@@ -2115,6 +2218,32 @@ textarea.form-input {
 
   .hero {
     min-height: 60vh;
+  }
+
+  /* Even smaller padding on tiny phones */
+  .page-container {
+    padding: var(--space-sm);
+  }
+
+  /* Topbar right side: hide non-essential badges */
+  .topbar-badge.coins {
+    display: none;
+  }
+
+  /* Buttons in page-header stack nicely */
+  .page-header .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* Stat cards go single-column */
+  .stat-card {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .stat-card-icon {
+    margin: 0 auto;
   }
 }
 
