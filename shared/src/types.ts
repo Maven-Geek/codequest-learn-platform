@@ -86,6 +86,7 @@ export interface PuzzleItem {
   id: string;
   content: string;
   type?: string;
+  color?: string;
 }
 
 export interface PuzzleActivityData {
