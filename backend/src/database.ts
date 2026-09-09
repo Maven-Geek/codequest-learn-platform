@@ -292,18 +292,20 @@ export async function seedDatabase(): Promise<void> {
     `INSERT INTO lessons (level_id, order_index, title, explanation, example, activity_type, activity_data) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
     [2, 3, 'Making Decisions',
       `# Making Decisions 🤔\n\nIn real life, you make decisions all the time:\n- **If** it's raining → take an umbrella ☔\n- **If** you're hungry → eat a snack 🍎\n- **If** the light is red → stop! 🛑\n\nIn coding, we call these **conditions** or **if-statements**. The computer checks if something is true, and then decides what to do!\n\n**Pattern:** IF (something is true) → THEN (do this action)`,
-      `## Example: Robot Decision\n\nOur robot is walking and might find a wall:\n\n🟩 IF wall ahead → 🟠 Turn Right\n🟩 IF no wall → 🔵 Move Forward\n\nThe robot checks at each step:\n- Is there a wall? If yes, turn.\n- No wall? Keep going!\n\nThis is how robots and programs make smart choices! 🧠`,
+      `## Example: Robot Decision\n\nOur robot is walking and might find a wall:\n\n🟩 IF wall ahead → 🟢 Turn Left\n🟩 IF no wall → 🔵 Move Forward\n\nThe robot checks at each step:\n- Is there a wall? If yes, turn.\n- No wall? Keep going!\n\nThis is how robots and programs make smart choices! 🧠`,
       'drag-drop',
       JSON.stringify({
         instructions: 'Help the robot navigate the maze! Use IF blocks to handle walls.',
         availableBlocks: [
           { id: 'move-m', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
-          { id: 'if-wall', type: 'if-wall', label: '🟩 If Wall → Turn', color: '#2ECC71' },
+          { id: 'if-wall', type: 'if-wall', label: '🟩 If Wall → Turn Left', color: '#2ECC71', turnDirection: 'left' },
           { id: 'move-m2', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
           { id: 'move-m3', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
-          { id: 'turn-r-m', type: 'turn-right', label: '🟢 Turn Right', color: '#01A3A4' }
+          { id: 'turn-r-m', type: 'turn-right', label: '🟢 Turn Right', color: '#01A3A4' },
+          { id: 'move-m4', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+          { id: 'move-m5', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' }
         ],
-        correctSequence: ['move-m', 'move-m2', 'if-wall', 'turn-r-m', 'move-m3'],
+        correctSequence: ['move-m', 'if-wall', 'move-m2', 'move-m3', 'turn-r-m', 'move-m4', 'move-m5'],
         gridSize: { rows: 3, cols: 4 },
         startPosition: { row: 2, col: 0 },
         endPosition: { row: 0, col: 3 },

@@ -30,7 +30,35 @@ export default function LessonPage() {
         api.getLesson(lessonId),
         api.getLessonQuiz(lessonId).catch(() => null),
       ]);
-      setLesson(lessonRes.data);
+      let lessonData = lessonRes.data;
+      if (lessonData && (lessonData.id === 6 || lessonData.title?.includes('Making Decisions'))) {
+        if (!lessonData.activity_data?.availableBlocks || lessonData.activity_data.availableBlocks.length < 7) {
+          lessonData = {
+            ...lessonData,
+            activity_data: {
+              ...lessonData.activity_data,
+              instructions: 'Help the robot navigate the maze! Use IF blocks to handle walls.',
+              availableBlocks: [
+                { id: 'move-m', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+                { id: 'if-wall', type: 'if-wall', label: '🟩 If Wall → Turn Left', color: '#2ECC71', turnDirection: 'left' },
+                { id: 'move-m2', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+                { id: 'move-m3', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+                { id: 'turn-r-m', type: 'turn-right', label: '🟢 Turn Right', color: '#01A3A4' },
+                { id: 'move-m4', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+                { id: 'move-m5', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' }
+              ],
+              correctSequence: ['move-m', 'if-wall', 'move-m2', 'move-m3', 'turn-r-m', 'move-m4', 'move-m5'],
+              gridSize: { rows: 3, cols: 4 },
+              startPosition: { row: 2, col: 0 },
+              endPosition: { row: 0, col: 3 },
+              walls: [{ row: 2, col: 2 }],
+              characterEmoji: '🤖',
+              goalEmoji: '🏁'
+            }
+          };
+        }
+      }
+      setLesson(lessonData);
       if (quizRes) setQuiz(quizRes.data);
     } catch (err) {
       console.error('Failed to load lesson:', err);

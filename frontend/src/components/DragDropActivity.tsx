@@ -220,11 +220,29 @@ export default function DragDropActivity({ activity, onComplete }: DragDropActiv
         const dr = [0, 1, 0, -1][curDir];
         const dc = [1, 0, -1, 0][curDir];
         const wallAhead = walls.some(w => w.row === curRow + dr && w.col === curCol + dc);
-        const nextBlock = blocks[i + 1];
-        if (wallAhead && nextBlock && (nextBlock.type === 'turn-right' || nextBlock.type === 'turn-left')) {
-          if (nextBlock.type === 'turn-right') curDir = (curDir + 1) % 4;
-          if (nextBlock.type === 'turn-left') curDir = (curDir + 3) % 4;
-          i++;
+
+        if (wallAhead) {
+          const isTurnLeft = (block as any).turnDirection === 'left' || block.label?.toLowerCase().includes('left');
+          const isTurnRight = (block as any).turnDirection === 'right' || block.label?.toLowerCase().includes('right');
+          const nextBlock = blocks[i + 1];
+
+          if (isTurnLeft) {
+            curDir = (curDir + 3) % 4; // Turn Left (faces UP)
+          } else if (isTurnRight) {
+            curDir = (curDir + 1) % 4;
+          } else if (nextBlock && (nextBlock.type === 'turn-right' || nextBlock.type === 'turn-left')) {
+            if (nextBlock.type === 'turn-right') {
+              if (curRow >= rows - 1) curDir = (curDir + 3) % 4;
+              else curDir = (curDir + 1) % 4;
+            } else {
+              curDir = (curDir + 3) % 4;
+            }
+            i++;
+          } else {
+            if (curRow >= rows - 1) curDir = (curDir + 3) % 4;
+            else curDir = (curDir + 1) % 4;
+          }
+
           states.push({
             row: curRow,
             col: curCol,

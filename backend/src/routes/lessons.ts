@@ -43,6 +43,35 @@ router.get('/levels', authMiddleware, async (req: Request, res: Response) => {
   }
 });
 
+function normalizeLessonActivityData(lesson: any) {
+  let data = typeof lesson.activity_data === 'string' ? JSON.parse(lesson.activity_data || '{}') : (lesson.activity_data || {});
+  if (lesson.id === 6 || lesson.title === 'Making Decisions') {
+    if (!data.availableBlocks || data.availableBlocks.length < 7) {
+      data = {
+        ...data,
+        instructions: 'Help the robot navigate the maze! Use IF blocks to handle walls.',
+        availableBlocks: [
+          { id: 'move-m', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+          { id: 'if-wall', type: 'if-wall', label: '🟩 If Wall → Turn Left', color: '#2ECC71', turnDirection: 'left' },
+          { id: 'move-m2', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+          { id: 'move-m3', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+          { id: 'turn-r-m', type: 'turn-right', label: '🟢 Turn Right', color: '#01A3A4' },
+          { id: 'move-m4', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+          { id: 'move-m5', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' }
+        ],
+        correctSequence: ['move-m', 'if-wall', 'move-m2', 'move-m3', 'turn-r-m', 'move-m4', 'move-m5'],
+        gridSize: { rows: 3, cols: 4 },
+        startPosition: { row: 2, col: 0 },
+        endPosition: { row: 0, col: 3 },
+        walls: [{ row: 2, col: 2 }],
+        characterEmoji: '🤖',
+        goalEmoji: '🏁'
+      };
+    }
+  }
+  return data;
+}
+
 // GET /api/levels/:id/lessons — Get lessons in a level
 router.get('/levels/:id/lessons', authMiddleware, async (req: Request, res: Response) => {
   try {
@@ -64,7 +93,7 @@ router.get('/levels/:id/lessons', authMiddleware, async (req: Request, res: Resp
     // Parse activity_data JSON
     const parsed = result.rows.map((l: any) => ({
       ...l,
-      activity_data: JSON.parse(l.activity_data || '{}'),
+      activity_data: normalizeLessonActivityData(l),
       is_completed: !!l.is_completed
     }));
 
@@ -101,7 +130,7 @@ router.get('/lessons/:id', authMiddleware, async (req: Request, res: Response) =
       return;
     }
 
-    lesson.activity_data = JSON.parse(lesson.activity_data || '{}');
+    lesson.activity_data = normalizeLessonActivityData(lesson);
     lesson.is_completed = !!lesson.is_completed;
 
     res.json({ success: true, data: lesson });
