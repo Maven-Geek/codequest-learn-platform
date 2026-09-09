@@ -58,6 +58,38 @@ export default function LessonPage() {
           };
         }
       }
+      if (lessonData && (lessonData.id === 7 || lessonData.title?.includes('Variables') || (lessonData.example && (lessonData.example.includes('StepActioncoins') || lessonData.example.includes('coins value'))))) {
+        const activityData = (!lessonData.activity_data?.availableBlocks || lessonData.activity_data.availableBlocks.length < 9)
+          ? {
+              ...lessonData.activity_data,
+              instructions: 'Help the robot collect all 3 coins! Watch the coin counter variable change as you collect them.',
+              availableBlocks: [
+                { id: 'move-v1', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+                { id: 'pick-1', type: 'pick-up', label: '🟡 Pick Up Coin', color: '#FECA57' },
+                { id: 'move-v2', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+                { id: 'move-v3', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+                { id: 'pick-2', type: 'pick-up', label: '🟡 Pick Up Coin', color: '#FECA57' },
+                { id: 'move-v4', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+                { id: 'move-v5', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+                { id: 'pick-3', type: 'pick-up', label: '🟡 Pick Up Coin', color: '#FECA57' },
+                { id: 'move-v6', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' }
+              ],
+              correctSequence: ['move-v1', 'pick-1', 'move-v2', 'move-v3', 'pick-2', 'move-v4', 'move-v5', 'pick-3', 'move-v6'],
+              gridSize: { rows: 1, cols: 7 },
+              startPosition: { row: 0, col: 0 },
+              endPosition: { row: 0, col: 6 },
+              collectibles: [{ row: 0, col: 1 }, { row: 0, col: 3 }, { row: 0, col: 5 }],
+              characterEmoji: '🤖',
+              goalEmoji: '🏆'
+            }
+          : lessonData.activity_data;
+
+        lessonData = {
+          ...lessonData,
+          activity_data: activityData,
+          example: `## Example: Counting Coins 🪙\n\n**Variable:** \`coins = 0\`\n\n| Step | Action | coins value |\n|:---:|:---|:---|\n| 1 | 🪙 Pick up coin | \`coins = 1\` |\n| 2 | 🪙 Pick up coin | \`coins = 2\` |\n| 3 | 🪙 Pick up coin | \`coins = 3\` |\n\nThe variable **"coins"** keeps track of how many coins we've collected!\n\nAt the end, we can check: *"Do we have 3 coins?"* ✅`
+        };
+      }
       setLesson(lessonData);
       if (quizRes) setQuiz(quizRes.data);
     } catch (err) {
@@ -93,20 +125,168 @@ export default function LessonPage() {
   };
 
   const renderMarkdown = (text: string) => {
-    // Simple markdown rendering
-    return text
-      .replace(/^# (.+)$/gm, '<h1>$1</h1>')
-      .replace(/^## (.+)$/gm, '<h2>$1</h2>')
-      .replace(/^### (.+)$/gm, '<h3>$1</h3>')
-      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-      .replace(/^\|(.+)\|$/gm, (match) => {
-        const cells = match.split('|').filter(c => c.trim());
-        return '<tr>' + cells.map(c => `<td>${c.trim()}</td>`).join('') + '</tr>';
-      })
-      .replace(/^- (.+)$/gm, '<li>$1</li>')
-      .replace(/^(\d+)\. (.+)$/gm, '<li>$2</li>')
-      .replace(/\n\n/g, '</p><p>')
-      .replace(/\n/g, '<br/>');
+    if (!text) return '';
+
+    // If squished or raw unformatted table text was loaded, format it into a clean markdown table
+    let cleanText = text.replace(
+      /Step\s*Action\s*coins\s*value[\s\-]*1\s*Pick\s*up\s*coin\s*coins\s*=\s*1[\s\-]*2\s*Pick\s*up\s*coin\s*coins\s*=\s*2[\s\-]*3\s*Pick\s*up\s*coin\s*coins\s*=\s*3/gi,
+      `| Step | Action | coins value |\n|:---:|:---|:---|\n| 1 | 🪙 Pick up coin | \`coins = 1\` |\n| 2 | 🪙 Pick up coin | \`coins = 2\` |\n| 3 | 🪙 Pick up coin | \`coins = 3\``
+    );
+
+    const formatInline = (str: string) => {
+      return str
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*([^*]+?)\*/g, '<em>$1</em>')
+        .replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>');
+    };
+
+    const lines = cleanText.split('\n');
+    const result: string[] = [];
+    let i = 0;
+
+    while (i < lines.length) {
+      const line = lines[i];
+      const trimmed = line.trim();
+
+      if (!trimmed) {
+        i++;
+        continue;
+      }
+
+      // Headers
+      if (/^### (.+)$/.test(trimmed)) {
+        const match = trimmed.match(/^### (.+)$/);
+        result.push(`<h3>${formatInline(match ? match[1] : '')}</h3>`);
+        i++;
+        continue;
+      }
+      if (/^## (.+)$/.test(trimmed)) {
+        const match = trimmed.match(/^## (.+)$/);
+        result.push(`<h2>${formatInline(match ? match[1] : '')}</h2>`);
+        i++;
+        continue;
+      }
+      if (/^# (.+)$/.test(trimmed)) {
+        const match = trimmed.match(/^# (.+)$/);
+        result.push(`<h1>${formatInline(match ? match[1] : '')}</h1>`);
+        i++;
+        continue;
+      }
+
+      // Markdown Table: block of lines starting and ending with |
+      if (trimmed.startsWith('|') && trimmed.endsWith('|')) {
+        const tableLines: string[] = [];
+        while (i < lines.length && lines[i].trim().startsWith('|') && lines[i].trim().endsWith('|')) {
+          tableLines.push(lines[i].trim());
+          i++;
+        }
+
+        if (tableLines.length >= 2) {
+          const parseRow = (rowStr: string) => {
+            const raw = rowStr.split('|');
+            if (raw.length > 0 && raw[0].trim() === '') raw.shift();
+            if (raw.length > 0 && raw[raw.length - 1].trim() === '') raw.pop();
+            return raw.map(c => c.trim());
+          };
+
+          const isSeparator = (rowStr: string) => {
+            const cells = parseRow(rowStr);
+            return cells.length > 0 && cells.every(c => /^:?-+:?$/.test(c));
+          };
+
+          const getAlignments = (delimiterStr: string) => {
+            const cells = parseRow(delimiterStr);
+            return cells.map(c => {
+              const left = c.startsWith(':');
+              const right = c.endsWith(':');
+              if (left && right) return 'center';
+              if (right) return 'right';
+              return 'left';
+            });
+          };
+
+          const headerCells = parseRow(tableLines[0]);
+          let hasHeader = false;
+          let alignments: string[] = [];
+          let dataStartIndex = 1;
+
+          if (tableLines.length > 1 && isSeparator(tableLines[1])) {
+            hasHeader = true;
+            alignments = getAlignments(tableLines[1]);
+            dataStartIndex = 2;
+          }
+
+          let tableHtml = '<div class="lesson-table-wrapper"><table class="lesson-table">';
+          if (hasHeader) {
+            tableHtml += '<thead><tr>';
+            headerCells.forEach((cell, idx) => {
+              const align = alignments[idx] || 'left';
+              tableHtml += `<th style="text-align: ${align}">${formatInline(cell)}</th>`;
+            });
+            tableHtml += '</tr></thead>';
+          }
+
+          tableHtml += '<tbody>';
+          const start = hasHeader ? dataStartIndex : 0;
+          for (let r = start; r < tableLines.length; r++) {
+            if (isSeparator(tableLines[r])) continue;
+            const cells = parseRow(tableLines[r]);
+            tableHtml += '<tr>';
+            cells.forEach((cell, idx) => {
+              const align = alignments[idx] || 'left';
+              tableHtml += `<td style="text-align: ${align}">${formatInline(cell)}</td>`;
+            });
+            tableHtml += '</tr>';
+          }
+          tableHtml += '</tbody></table></div>';
+          result.push(tableHtml);
+          continue;
+        }
+      }
+
+      // Unordered list
+      if (/^[-*]\s+(.+)$/.test(trimmed)) {
+        const listItems: string[] = [];
+        while (i < lines.length && /^[-*]\s+(.+)$/.test(lines[i].trim())) {
+          const match = lines[i].trim().match(/^[-*]\s+(.+)$/);
+          listItems.push(`<li>${formatInline(match ? match[1] : '')}</li>`);
+          i++;
+        }
+        result.push(`<ul>${listItems.join('')}</ul>`);
+        continue;
+      }
+
+      // Ordered list
+      if (/^\d+\.\s+(.+)$/.test(trimmed)) {
+        const listItems: string[] = [];
+        while (i < lines.length && /^\d+\.\s+(.+)$/.test(lines[i].trim())) {
+          const match = lines[i].trim().match(/^\d+\.\s+(.+)$/);
+          listItems.push(`<li>${formatInline(match ? match[1] : '')}</li>`);
+          i++;
+        }
+        result.push(`<ol>${listItems.join('')}</ol>`);
+        continue;
+      }
+
+      // Regular paragraph
+      const pLines: string[] = [];
+      while (
+        i < lines.length &&
+        lines[i].trim() &&
+        !/^#{1,3}\s/.test(lines[i].trim()) &&
+        !(lines[i].trim().startsWith('|') && lines[i].trim().endsWith('|')) &&
+        !/^[-*]\s/.test(lines[i].trim()) &&
+        !/^\d+\.\s/.test(lines[i].trim())
+      ) {
+        pLines.push(formatInline(lines[i].trim()));
+        i++;
+      }
+      if (pLines.length > 0) {
+        result.push(`<p>${pLines.join('<br/>')}</p>`);
+      }
+    }
+
+    return result.join('\n');
   };
 
   if (loading) return <div className="loading-spinner">🚀</div>;

@@ -69,6 +69,33 @@ function normalizeLessonActivityData(lesson: any) {
       };
     }
   }
+
+  if (lesson.id === 7 || lesson.title === 'Variables — Remembering Things' || lesson.title?.includes('Variables')) {
+    if (!data.availableBlocks || data.availableBlocks.length < 9) {
+      data = {
+        ...data,
+        instructions: 'Help the robot collect all 3 coins! Watch the coin counter variable change as you collect them.',
+        availableBlocks: [
+          { id: 'move-v1', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+          { id: 'pick-1', type: 'pick-up', label: '🟡 Pick Up Coin', color: '#FECA57' },
+          { id: 'move-v2', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+          { id: 'move-v3', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+          { id: 'pick-2', type: 'pick-up', label: '🟡 Pick Up Coin', color: '#FECA57' },
+          { id: 'move-v4', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+          { id: 'move-v5', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+          { id: 'pick-3', type: 'pick-up', label: '🟡 Pick Up Coin', color: '#FECA57' },
+          { id: 'move-v6', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' }
+        ],
+        correctSequence: ['move-v1', 'pick-1', 'move-v2', 'move-v3', 'pick-2', 'move-v4', 'move-v5', 'pick-3', 'move-v6'],
+        gridSize: { rows: 1, cols: 7 },
+        startPosition: { row: 0, col: 0 },
+        endPosition: { row: 0, col: 6 },
+        collectibles: [{ row: 0, col: 1 }, { row: 0, col: 3 }, { row: 0, col: 5 }],
+        characterEmoji: '🤖',
+        goalEmoji: '🏆'
+      };
+    }
+  }
   return data;
 }
 
@@ -91,11 +118,18 @@ router.get('/levels/:id/lessons', authMiddleware, async (req: Request, res: Resp
     `, [userId, levelId]);
 
     // Parse activity_data JSON
-    const parsed = result.rows.map((l: any) => ({
-      ...l,
-      activity_data: normalizeLessonActivityData(l),
-      is_completed: !!l.is_completed
-    }));
+    const parsed = result.rows.map((l: any) => {
+      let example = l.example;
+      if (l.id === 7 || l.title?.includes('Variables') || (example && (example.includes('coins value') || example.includes('StepActioncoins')))) {
+        example = `## Example: Counting Coins 🪙\n\n**Variable:** \`coins = 0\`\n\n| Step | Action | coins value |\n|:---:|:---|:---|\n| 1 | 🪙 Pick up coin | \`coins = 1\` |\n| 2 | 🪙 Pick up coin | \`coins = 2\` |\n| 3 | 🪙 Pick up coin | \`coins = 3\` |\n\nThe variable **"coins"** keeps track of how many coins we've collected!\n\nAt the end, we can check: *"Do we have 3 coins?"* ✅`;
+      }
+      return {
+        ...l,
+        example,
+        activity_data: normalizeLessonActivityData(l),
+        is_completed: !!l.is_completed
+      };
+    });
 
     res.json({ success: true, data: parsed });
   } catch (error: any) {
@@ -131,6 +165,9 @@ router.get('/lessons/:id', authMiddleware, async (req: Request, res: Response) =
     }
 
     lesson.activity_data = normalizeLessonActivityData(lesson);
+    if (lesson.id === 7 || lesson.title?.includes('Variables') || (lesson.example && (lesson.example.includes('coins value') || lesson.example.includes('StepActioncoins')))) {
+      lesson.example = `## Example: Counting Coins 🪙\n\n**Variable:** \`coins = 0\`\n\n| Step | Action | coins value |\n|:---:|:---|:---|\n| 1 | 🪙 Pick up coin | \`coins = 1\` |\n| 2 | 🪙 Pick up coin | \`coins = 2\` |\n| 3 | 🪙 Pick up coin | \`coins = 3\` |\n\nThe variable **"coins"** keeps track of how many coins we've collected!\n\nAt the end, we can check: *"Do we have 3 coins?"* ✅`;
+    }
     lesson.is_completed = !!lesson.is_completed;
 
     res.json({ success: true, data: lesson });

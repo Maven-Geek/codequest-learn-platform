@@ -1120,13 +1120,20 @@ textarea.form-input {
   50% { box-shadow: 0 0 20px rgba(249, 168, 37, 0.5); }
 }
 
-.grid-cell.collectible {
-  animation: coinSpin 3s linear infinite;
+.grid-cell.collectible > span {
+  display: inline-block;
+  animation: coinBounce 1.8s ease-in-out infinite;
 }
 
-@keyframes coinSpin {
-  0% { transform: perspective(100px) rotateY(0deg); }
-  100% { transform: perspective(100px) rotateY(360deg); }
+@keyframes coinBounce {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+    filter: drop-shadow(0 2px 4px rgba(249, 168, 37, 0.4));
+  }
+  50% {
+    transform: translateY(-4px) scale(1.12);
+    filter: drop-shadow(0 4px 8px rgba(249, 168, 37, 0.7));
+  }
 }
 
 /* ============================================================
@@ -1313,22 +1320,75 @@ textarea.form-input {
   color: var(--color-primary);
 }
 
-.lesson-explanation table {
+.lesson-table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  margin: var(--space-lg) 0;
+  border-radius: var(--radius-lg);
+  border: 2px solid var(--color-border-light);
+  background: var(--color-surface);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.04);
+}
+
+.lesson-explanation table.lesson-table,
+.lesson-table {
   width: 100%;
   border-collapse: collapse;
-  margin: var(--space-lg) 0;
+  margin: 0;
+  font-size: 0.95rem;
 }
 
-.lesson-explanation th,
-.lesson-explanation td {
-  padding: var(--space-sm) var(--space-md);
-  border: 1px solid var(--color-border-light);
-  text-align: left;
-}
-
-.lesson-explanation th {
-  background: var(--color-bg-warm);
+.lesson-table thead th {
+  background: linear-gradient(135deg, rgba(0, 99, 156, 0.08), rgba(77, 171, 247, 0.12));
+  color: var(--color-primary-dark);
   font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.95rem;
+  padding: var(--space-md) var(--space-lg);
+  border-bottom: 2px solid var(--color-primary-light);
+  letter-spacing: 0.02em;
+}
+
+.lesson-table tbody td {
+  padding: var(--space-md) var(--space-lg);
+  border-bottom: 1px solid var(--color-border-light);
+  color: var(--color-text);
+  vertical-align: middle;
+}
+
+.lesson-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.lesson-table tbody tr:nth-child(even) {
+  background: var(--color-surface-dim);
+}
+
+.lesson-table tbody tr:hover {
+  background: rgba(0, 99, 156, 0.04);
+}
+
+.lesson-explanation .inline-code {
+  background: rgba(0, 99, 156, 0.08);
+  color: var(--color-primary);
+  padding: 0.2em 0.5em;
+  border-radius: var(--radius-sm);
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 0.9em;
+  font-weight: 600;
+  border: 1px solid rgba(0, 99, 156, 0.15);
+}
+
+.lesson-explanation ul,
+.lesson-explanation ol {
+  margin: var(--space-sm) 0 var(--space-md) var(--space-lg);
+  padding-left: var(--space-md);
+  color: var(--color-text-muted);
+}
+
+.lesson-explanation li {
+  margin-bottom: var(--space-xs);
+  line-height: 1.6;
 }
 
 /* ============================================================

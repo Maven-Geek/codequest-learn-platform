@@ -323,7 +323,7 @@ export async function seedDatabase(): Promise<void> {
     `INSERT INTO lessons (level_id, order_index, title, explanation, example, activity_type, activity_data) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
     [3, 1, 'Variables — Remembering Things',
       `# Variables — Remembering Things 📦\n\nA **variable** is like a labeled box where you can store information.\n\nImagine you have a box labeled "Score". You can:\n- 📥 **Put** a number in it: Score = 0\n- 👀 **Look** at what's inside: Score is 0\n- ✏️ **Change** what's inside: Score = Score + 10\n\nVariables help your program remember and use information!`,
-      `## Example: Counting Coins 🪙\n\n**Variable:** coins = 0\n\n| Step | Action | coins value |\n|------|--------|-------------|\n| 1 | Pick up coin | coins = 1 |\n| 2 | Pick up coin | coins = 2 |\n| 3 | Pick up coin | coins = 3 |\n\nThe variable "coins" keeps track of how many coins we've collected!\n\nAt the end, we can check: "Do we have 3 coins?" ✅`,
+      `## Example: Counting Coins 🪙\n\n**Variable:** \`coins = 0\`\n\n| Step | Action | coins value |\n|:---:|:---|:---|\n| 1 | 🪙 Pick up coin | \`coins = 1\` |\n| 2 | 🪙 Pick up coin | \`coins = 2\` |\n| 3 | 🪙 Pick up coin | \`coins = 3\` |\n\nThe variable **"coins"** keeps track of how many coins we've collected!\n\nAt the end, we can check: *"Do we have 3 coins?"* ✅`,
       'drag-drop',
       JSON.stringify({
         instructions: 'Help the robot collect all 3 coins! Watch the coin counter variable change as you collect them.',
@@ -331,11 +331,14 @@ export async function seedDatabase(): Promise<void> {
           { id: 'move-v1', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
           { id: 'pick-1', type: 'pick-up', label: '🟡 Pick Up Coin', color: '#FECA57' },
           { id: 'move-v2', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
-          { id: 'pick-2', type: 'pick-up', label: '🟡 Pick Up Coin', color: '#FECA57' },
           { id: 'move-v3', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
-          { id: 'pick-3', type: 'pick-up', label: '🟡 Pick Up Coin', color: '#FECA57' }
+          { id: 'pick-2', type: 'pick-up', label: '🟡 Pick Up Coin', color: '#FECA57' },
+          { id: 'move-v4', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+          { id: 'move-v5', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+          { id: 'pick-3', type: 'pick-up', label: '🟡 Pick Up Coin', color: '#FECA57' },
+          { id: 'move-v6', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' }
         ],
-        correctSequence: ['move-v1', 'pick-1', 'move-v2', 'pick-2', 'move-v3', 'pick-3'],
+        correctSequence: ['move-v1', 'pick-1', 'move-v2', 'move-v3', 'pick-2', 'move-v4', 'move-v5', 'pick-3', 'move-v6'],
         gridSize: { rows: 1, cols: 7 },
         startPosition: { row: 0, col: 0 },
         endPosition: { row: 0, col: 6 },
