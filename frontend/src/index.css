@@ -1490,6 +1490,139 @@ textarea.form-input {
 }
 
 /* ============================================================
+   PYTHON CODE BLOCKS & SYNTAX HIGHLIGHTING
+   ============================================================ */
+
+.code-block-container {
+  margin: var(--space-lg) 0;
+  border-radius: var(--radius-lg);
+  border: 2px solid #2d3748;
+  background: #1a202c;
+  overflow: hidden;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+}
+
+.code-block-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 16px;
+  background: #111827;
+  border-bottom: 1px solid #374151;
+  font-family: var(--font-display);
+}
+
+.code-lang-tag {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #60a5fa;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.code-header-tip {
+  font-size: 0.75rem;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.code-snippet-box {
+  margin: 0;
+  padding: 16px 20px;
+  background: #1e293b;
+  color: #e2e8f0;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 0.95rem;
+  line-height: 1.65;
+  overflow-x: auto;
+}
+
+.code-snippet-box code {
+  font-family: inherit;
+}
+
+/* Syntax Highlighting Colors */
+.code-kw {
+  color: #f472b6; /* vibrant pink for keywords (def, for, if) */
+  font-weight: 700;
+}
+
+.code-fn {
+  color: #38bdf8; /* sky blue for function names (move_forward, range) */
+  font-weight: 600;
+}
+
+.code-obj {
+  color: #facc15; /* sunny yellow for objects (robot) */
+  font-weight: 600;
+}
+
+.code-str {
+  color: #4ade80; /* bright green for strings */
+}
+
+.code-num {
+  color: #fb923c; /* orange for numbers */
+  font-weight: 600;
+}
+
+.code-com {
+  color: #94a3b8; /* slate gray for comments */
+  font-style: italic;
+}
+
+/* Python Mirror Drawer in DragDropActivity */
+.python-mirror-panel {
+  border-radius: var(--radius-lg);
+  border: 2px solid #334155;
+  background: #0f172a;
+  overflow: hidden;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: column;
+}
+
+.python-mirror-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 16px;
+  background: #1e293b;
+  border-bottom: 1px solid #334155;
+}
+
+.python-mirror-body {
+  padding: 14px 18px;
+  margin: 0;
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 0.92rem;
+  line-height: 1.6;
+  color: #f8fafc;
+  background: #0f172a;
+  overflow-x: auto;
+  min-height: 140px;
+}
+
+.python-mirror-body code {
+  font-family: inherit;
+}
+
+.python-split-container {
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: var(--space-md);
+  align-items: stretch;
+}
+
+@media (max-width: 900px) {
+  .python-split-container {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ============================================================
    QUIZ
    ============================================================ */
 

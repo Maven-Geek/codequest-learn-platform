@@ -104,6 +104,10 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
   // Star rating outcome
   const [starResult, setStarResult] = useState<StarBreakdown | null>(null);
 
+  // Live Python Code View Mode
+  const [codeViewMode, setCodeViewMode] = useState<'blocks' | 'split' | 'python'>('split');
+  const [copiedPython, setCopiedPython] = useState(false);
+
   const draggedItem = useRef<{ block: Block; source: 'palette' | 'dropzone'; index: number } | null>(null);
   const animationTimeouts = useRef<NodeJS.Timeout[]>([]);
 
@@ -127,6 +131,141 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
   const toggleSound = () => {
     const isMutedNow = sfx.toggleMute();
     setMuted(isMutedNow);
+  };
+
+  // Helper to convert dropped blocks into idiomatic Python statements
+  const getBlockPythonStatements = (block: Block): string[] => {
+    switch (block.type) {
+      case 'move':
+        return ['robot.move_forward()'];
+      case 'turn-left':
+        return ['robot.turn_left()'];
+      case 'turn-right':
+        return ['robot.turn_right()'];
+      case 'pick-up':
+        return ['coins += 1', 'robot.pick_up()'];
+      case 'step': {
+        if (block.id === 'step-wake') return ['wake_up()'];
+        if (block.id === 'step-brush') return ['brush_teeth()'];
+        if (block.id === 'step-dress') return ['get_dressed()'];
+        if (block.id === 'step-eat') return ['eat_breakfast()'];
+        if (block.id === 'step-school') return ['go_to_school()'];
+        const clean = block.label
+          .replace(/^[^\w\s]+/, '')
+          .trim()
+          .toLowerCase()
+          .replace(/\s+/g, '_');
+        return [`${clean || 'step'}()`];
+      }
+      default: {
+        const clean = block.label
+          .replace(/^[^\w\s]+/, '')
+          .trim()
+          .toLowerCase()
+          .replace(/\s+/g, '_');
+        return [`${clean || 'action'}()`];
+      }
+    }
+  };
+
+  // Generate complete, formatted Python code from the user's dropZone
+  const generatePythonScript = (blocks: Block[]): string => {
+    if (!blocks || blocks.length === 0) {
+      return '# 🐍 Python Code View\n# Drag blocks into your program to see live Python code appear here!';
+    }
+
+    const lines: string[] = ['# 🐍 CodeQuest Python Program', ''];
+    const hasPickUp = blocks.some(b => b.type === 'pick-up' || b.id?.includes('coin'));
+    if (hasPickUp) {
+      lines.push('# Initialize coin counter variable');
+      lines.push('coins = 0');
+      lines.push('');
+    }
+
+    let i = 0;
+    while (i < blocks.length) {
+      const block = blocks[i];
+      if (block.type === 'repeat') {
+        const count = block.repeatCount || 2;
+        const span = (block as any).repeatSpan || 1;
+        lines.push(`for step in range(${count}):`);
+        if (span > 0 && i + 1 < blocks.length) {
+          for (let s = 1; s <= span && i + s < blocks.length; s++) {
+            const subStmts = getBlockPythonStatements(blocks[i + s]);
+            subStmts.forEach(stmt => lines.push(`    ${stmt}`));
+          }
+          i += span + 1;
+          continue;
+        } else {
+          lines.push('    pass  # Add actions inside this loop');
+        }
+      } else if (block.type === 'if-wall') {
+        const dir = block.turnDirection === 'right' ? 'turn_right' : 'turn_left';
+        lines.push('if robot.is_wall_ahead():');
+        lines.push(`    robot.${dir}()`);
+        lines.push('else:');
+        lines.push('    robot.move_forward()');
+      } else {
+        const stmts = getBlockPythonStatements(block);
+        stmts.forEach(s => lines.push(s));
+      }
+      i++;
+    }
+
+    if (hasPickUp) {
+      lines.push('');
+      lines.push('print(f"Quest complete! Total coins collected: {coins}")');
+    }
+
+    return lines.join('\n');
+  };
+
+  // Highlight syntax with colors
+  const highlightPython = (code: string): string => {
+    const escapeHtml = (str: string) =>
+      str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+    return code
+      .split('\n')
+      .map(line => {
+        const commentIdx = line.indexOf('#');
+        const codePart = commentIdx >= 0 ? line.slice(0, commentIdx) : line;
+        const commentPart = commentIdx >= 0 ? line.slice(commentIdx) : '';
+
+        let escaped = escapeHtml(codePart);
+
+        // Strings
+        escaped = escaped.replace(/(["'])(?:(?=(\\?))\2.)*?\1/g, '<span class="code-str">$&</span>');
+
+        // Keywords
+        escaped = escaped.replace(
+          /\b(def|return|if|elif|else|for|while|in|range|True|False|None|and|or|not|print|pass)\b/g,
+          '<span class="code-kw">$1</span>'
+        );
+
+        // Robot method calls
+        escaped = escaped.replace(/\brobot\.([a-zA-Z_]\w*)/g, '<span class="code-obj">robot</span>.<span class="code-fn">$1</span>');
+
+        // Functions
+        escaped = escaped.replace(/\b([a-zA-Z_]\w*)(?=\s*\()/g, '<span class="code-fn">$1</span>');
+
+        // Numbers
+        escaped = escaped.replace(/\b(\d+)\b/g, '<span class="code-num">$1</span>');
+
+        if (commentPart) {
+          return escaped + `<span class="code-com">${escapeHtml(commentPart)}</span>`;
+        }
+        return escaped;
+      })
+      .join('\n');
+  };
+
+  const copyPythonCode = () => {
+    const rawPy = generatePythonScript(dropZone);
+    navigator.clipboard.writeText(rawPy).then(() => {
+      setCopiedPython(true);
+      setTimeout(() => setCopiedPython(false), 2000);
+    });
   };
 
   const getBlockClass = (type: string) => {
@@ -1255,29 +1394,63 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
         </div>
       </div>
 
-      {/* Drop zone */}
+      {/* Drop zone and Python Mirror */}
       <div className="mb-lg">
-        <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span>🎯 Your Program (robot moves live as you drop!)</span>
-          {expectedBlockCount > 0 && (
-            <span
-              className={`badge ${dropZone.length >= expectedBlockCount ? 'badge-success' : 'badge-primary'}`}
-              style={{
-                fontSize: '0.85rem',
-                fontWeight: 700,
-                background: dropZone.length >= expectedBlockCount ? 'var(--color-accent-green)' : 'var(--color-primary)',
-                color: '#ffffff',
-                padding: '3px 10px',
-                borderRadius: 'var(--radius-full)',
-              }}
+        <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span>🎯 Your Program</span>
+            {expectedBlockCount > 0 && (
+              <span
+                className={`badge ${dropZone.length >= expectedBlockCount ? 'badge-success' : 'badge-primary'}`}
+                style={{
+                  fontSize: '0.85rem',
+                  fontWeight: 700,
+                  background: dropZone.length >= expectedBlockCount ? 'var(--color-accent-green)' : 'var(--color-primary)',
+                  color: '#ffffff',
+                  padding: '3px 10px',
+                  borderRadius: 'var(--radius-full)',
+                }}
+              >
+                {dropZone.length} / {expectedBlockCount} blocks placed {dropZone.length >= expectedBlockCount ? '✓' : ''}
+              </span>
+            )}
+          </div>
+          <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.75rem', color: 'var(--color-text-dim)', fontWeight: 600, marginRight: '4px' }}>VIEW:</span>
+            <button
+              type="button"
+              className={`btn btn-xs ${codeViewMode === 'blocks' ? 'btn-primary' : 'btn-ghost'}`}
+              onClick={() => setCodeViewMode('blocks')}
+              style={{ fontSize: '0.75rem', padding: '2px 8px' }}
+              title="Show Blocks only"
             >
-              {dropZone.length} / {expectedBlockCount} blocks placed {dropZone.length >= expectedBlockCount ? '✓' : ''}
-            </span>
-          )}
+              🧱 Blocks
+            </button>
+            <button
+              type="button"
+              className={`btn btn-xs ${codeViewMode === 'split' ? 'btn-primary' : 'btn-ghost'}`}
+              onClick={() => setCodeViewMode('split')}
+              style={{ fontSize: '0.75rem', padding: '2px 8px' }}
+              title="Show Blocks and Python side-by-side"
+            >
+              ⚡ Split View
+            </button>
+            <button
+              type="button"
+              className={`btn btn-xs ${codeViewMode === 'python' ? 'btn-primary' : 'btn-ghost'}`}
+              onClick={() => setCodeViewMode('python')}
+              style={{ fontSize: '0.75rem', padding: '2px 8px' }}
+              title="Show Python code only"
+            >
+              🐍 Python Code
+            </button>
+          </div>
         </label>
-        <div
-          className={`drop-zone ${dragOver ? 'drag-over' : ''} ${result === 'success' ? 'correct' : result === 'error' ? 'incorrect' : ''
-            }`}
+        <div className={codeViewMode === 'split' ? 'python-split-container' : ''}>
+          {(codeViewMode === 'blocks' || codeViewMode === 'split') && (
+            <div
+              className={`drop-zone ${dragOver ? 'drag-over' : ''} ${result === 'success' ? 'correct' : result === 'error' ? 'incorrect' : ''
+                }`}
           onDragOver={(e) => {
             e.preventDefault();
             setDragOver(true);
@@ -1558,6 +1731,35 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
               );
             });
           })()}
+            </div>
+          )}
+
+          {(codeViewMode === 'python' || codeViewMode === 'split') && (
+            <div className="python-mirror-panel">
+              <div className="python-mirror-header">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '1.2rem' }}>🐍</span>
+                  <span style={{ color: '#60a5fa', fontWeight: 700, fontSize: '0.92rem' }}>Python Code Mirror</span>
+                  <span style={{ fontSize: '0.75rem', background: 'rgba(96, 165, 250, 0.2)', color: '#93c5fd', padding: '2px 8px', borderRadius: '12px', fontWeight: 600 }}>Live Generator</span>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-xs btn-ghost"
+                  onClick={copyPythonCode}
+                  style={{ fontSize: '0.8rem', color: '#93c5fd', border: '1px solid rgba(147, 197, 253, 0.3)', padding: '3px 10px' }}
+                  title="Copy Python code to clipboard"
+                >
+                  {copiedPython ? 'Copied! ✓' : '📋 Copy Python'}
+                </button>
+              </div>
+              <pre className="python-mirror-body">
+                <code dangerouslySetInnerHTML={{ __html: highlightPython(generatePythonScript(dropZone)) }} />
+              </pre>
+              <div style={{ padding: '10px 16px', background: '#0b1120', borderTop: '1px solid #1e293b', fontSize: '0.8rem', color: '#94a3b8', lineHeight: 1.5 }}>
+                💡 <strong>Python Insight:</strong> Each block you drop translates into real Python code! Notice colons <code>:</code> after <code>for</code> or <code>if</code>, and 4-space indentation for code inside loops.
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

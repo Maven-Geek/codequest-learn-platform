@@ -142,6 +142,9 @@ export async function initializeDatabase(): Promise<void> {
 
   // Ensure Level 4 (Cosmic Citadel) and lessons exist for existing and new databases
   await ensureLevel4Exists();
+
+  // Ensure curriculum & quizzes across all 13 lessons are upgraded with Python syntax
+  await updateCurriculumWithPython();
 }
 
 // ---- Level 4 Migration & Setup ----
@@ -625,6 +628,572 @@ export async function ensureLevel4Exists(): Promise<void> {
     } catch (_) {}
   } catch (err) {
     console.error('Failed to ensure Level 4 exists:', err);
+  }
+}
+
+// ---- Python Curriculum & Quiz Migration ----
+export async function updateCurriculumWithPython(): Promise<void> {
+  try {
+    console.log('🐍 Checking & updating Python curriculum and quizzes across all 13 lessons...');
+
+    interface PythonLessonData {
+      levelOrder: number;
+      lessonOrder: number;
+      title: string;
+      explanation: string;
+      example: string;
+      passingScore: number;
+      questions: Array<{
+        text: string;
+        options: Array<{ text: string; isCorrect: boolean }>;
+      }>;
+    }
+
+    const pythonCurriculum: PythonLessonData[] = [
+      // ----------------------------------------------------
+      // Level 1: Star Island — Basics of Coding & Python
+      // ----------------------------------------------------
+      {
+        levelOrder: 1,
+        lessonOrder: 1,
+        title: 'What is Coding? Meet Python!',
+        explanation: `# What is Coding? Meet Python! 🐍\n\nCoding is like giving step-by-step instructions to a computer! Just like you follow steps to get dressed or bake cookies, a computer follows instructions that we write for it.\n\nComputers don't speak human languages like English or French. Instead, programmers use programming languages like **Python**!\n\nPython is one of the world's most popular and friendly programming languages. It powers robots, creates video games, and even helps NASA explore outer space! 🚀\n\n### How Python Thinks: Top-to-Bottom 📜\nComputers read instructions in order, starting from the very first line down to the last line. That order is called **sequencing**!`,
+        example: `## Example: Morning Routine in Python 🌅\n\nHere is what a computer program looks like in real Python code:\n\n\`\`\`python\n# My Morning Routine in Python\nprint("1. Wake up ⏰")\nprint("2. Brush teeth 🪥")\nprint("3. Get dressed 👕")\nprint("4. Eat breakfast 🥣")\nprint("5. Go to school 🎒")\n\`\`\`\n\n### Python Super-Tips 💡\n- **\`#\` (Comments):** Any line starting with \`#\` is a friendly note for humans. Python skips it!\n- **\`print(...)\`:** Tells the computer to say or display something on the screen.\n- **Quotes (\`"..."\`):** Text inside quotes is called a **string**.\n- **Sequence:** If you run line 5 before line 3, you would go to school in your pajamas! 😂 Order always matters!`,
+        passingScore: 70,
+        questions: [
+          {
+            text: 'What is coding?',
+            options: [
+              { text: 'Giving step-by-step instructions to a computer', isCorrect: true },
+              { text: 'Playing video games all day', isCorrect: false },
+              { text: 'Drawing pictures with crayons', isCorrect: false },
+              { text: 'Turning off the power switch', isCorrect: false },
+            ],
+          },
+          {
+            text: 'In Python, which function displays words on the screen?',
+            options: [
+              { text: 'print("Hello!")', isCorrect: true },
+              { text: 'shout("Hello!")', isCorrect: false },
+              { text: 'speak.loudly()', isCorrect: false },
+              { text: 'screen.write()', isCorrect: false },
+            ],
+          },
+          {
+            text: 'Why does the ORDER of Python lines matter?',
+            options: [
+              { text: 'Python reads and runs each line from top to bottom in order', isCorrect: true },
+              { text: 'The computer gets tired if lines are mixed up', isCorrect: false },
+              { text: 'Order does not matter at all in Python', isCorrect: false },
+              { text: 'Python reads lines backwards from bottom to top', isCorrect: false },
+            ],
+          },
+        ],
+      },
+      {
+        levelOrder: 1,
+        lessonOrder: 2,
+        title: 'Giving Instructions: Python Commands',
+        explanation: `# Giving Instructions: Python Commands 🗺️\n\nComputers only do exactly what you tell them. They cannot guess!\n\nImagine you have a robot friend named **Codi**. To make Codi walk to a treasure chest, you need to give **clear, step-by-step commands**.\n\nIn Python, we call commands **functions**. When you want an action to happen right now, you write parentheses \`()\` at the end:\n- 🔵 \`robot.move_forward()\` — walk one square ahead\n- 🟠 \`robot.turn_left()\` — pivot left\n- 🟢 \`robot.turn_right()\` — pivot right`,
+        example: `## Example: Guiding Codi the Robot 🤖\n\nTo move Codi 2 steps forward, turn right, and walk 1 step:\n\n\`\`\`python\n# Guide Codi to the Star ⭐\nrobot.move_forward()\nrobot.move_forward()\nrobot.turn_right()\nrobot.move_forward()\n\`\`\`\n\n### Why the Parentheses \`()\`? 🔍\nIn Python, parentheses \`()\` mean **"Perform this action right now!"**\nWithout \`()\`, the robot just stares at the instruction without moving!`,
+        passingScore: 70,
+        questions: [
+          {
+            text: 'What does the Python command robot.move_forward() do?',
+            options: [
+              { text: 'Makes the robot walk one step ahead', isCorrect: true },
+              { text: 'Makes the robot jump backwards', isCorrect: false },
+              { text: 'Powers down the robot', isCorrect: false },
+              { text: 'Changes the robot color', isCorrect: false },
+            ],
+          },
+          {
+            text: 'In Python, what do the parentheses () mean at the end of robot.turn_right()?',
+            options: [
+              { text: 'They tell Python to run or execute that command right now', isCorrect: true },
+              { text: 'They are just a smile emoji', isCorrect: false },
+              { text: 'They mean the robot is sleeping', isCorrect: false },
+              { text: 'They delete the instruction', isCorrect: false },
+            ],
+          },
+          {
+            text: 'How many steps forward will this Python code move the robot?\nrobot.move_forward()\nrobot.move_forward()\nrobot.move_forward()',
+            options: [
+              { text: '3 steps', isCorrect: true },
+              { text: '1 step', isCorrect: false },
+              { text: '2 steps', isCorrect: false },
+              { text: '0 steps', isCorrect: false },
+            ],
+          },
+        ],
+      },
+      {
+        levelOrder: 1,
+        lessonOrder: 3,
+        title: 'Sequence Matters: Code in Order',
+        explanation: `# Sequence Matters: Code in Order 🎯\n\nIn programming, the **order** of instructions is everything. If you shuffle lines in the wrong order, your program gets confused and won't work!\n\nThis is called **sequencing** — executing steps in exact chronological order.\n\n**Real life example:** What happens if you try to pour cereal before putting a bowl on the table? 🥣 A giant mess on the floor!`,
+        example: `## Example: Baking a Cake in Python 🎂\n\nNotice how each step logically follows the one before it:\n\n\`\`\`python\n# The Delicious Cake Program 🎂\nread_recipe()\nmix_ingredients()\npour_into_pan()\nbake_in_oven()\ndecorate_cake()\n\`\`\`\n\n### What Happens if Sequence Fails? 🚨\n\`\`\`python\n# ❌ BUGGY ORDER:\nbake_in_oven()     # Wait, the pan is empty!\ndecorate_cake()    # There is no cake yet!\nmix_ingredients()  # Too late!\n\`\`\`\nPython obeys the exact sequence you provide. Always plan your sequence before pressing Run!`,
+        passingScore: 70,
+        questions: [
+          {
+            text: 'What is "sequencing" in computer programming?',
+            options: [
+              { text: 'Putting instructions in the exact correct order', isCorrect: true },
+              { text: 'Choosing random block colors', isCorrect: false },
+              { text: 'Typing words as fast as possible', isCorrect: false },
+              { text: 'Restarting the computer', isCorrect: false },
+            ],
+          },
+          {
+            text: 'What happens if Python commands are placed in the wrong sequence?',
+            options: [
+              { text: 'The program will do the wrong thing or crash with an error', isCorrect: true },
+              { text: 'Python automatically guesses what you meant and fixes it', isCorrect: false },
+              { text: 'Nothing changes, computers do not care about order', isCorrect: false },
+              { text: 'The computer creates a new game', isCorrect: false },
+            ],
+          },
+          {
+            text: 'Which Python sequence makes sense for getting dressed?',
+            options: [
+              { text: 'put_on_socks() followed by put_on_shoes()', isCorrect: true },
+              { text: 'put_on_shoes() followed by put_on_socks()', isCorrect: false },
+              { text: 'go_outside() followed by put_on_shirt()', isCorrect: false },
+              { text: 'sleep() followed by wake_up()', isCorrect: false },
+            ],
+          },
+        ],
+      },
+
+      // ----------------------------------------------------
+      // Level 2: Rocket Valley — Loops, Patterns, Decisions
+      // ----------------------------------------------------
+      {
+        levelOrder: 2,
+        lessonOrder: 1,
+        title: 'Loops: Repeating with Python',
+        explanation: `# Loops: Repeating with Python 🔄\n\nWhat if you need a robot to walk 100 steps forward? Writing \`robot.move_forward()\` 100 times would make your fingers tired! 😴\n\nInstead, programmers use a **Loop**!\n\nA loop tells the computer: *"Repeat these instructions a specific number of times."*\n\nIn Python, we write loops using the \`for\` keyword and \`range()\`!`,
+        example: `## Example: Without Loop vs. Python Loop\n\n**Without a Loop** (repetitive and tiring):\n\`\`\`python\nrobot.move_forward()\nrobot.move_forward()\nrobot.move_forward()\nrobot.move_forward()\n\`\`\`\n\n**With a Python \`for\` Loop** (clean, smart, and fast! ⚡):\n\`\`\`python\nfor step in range(4):\n    robot.move_forward()\n\`\`\`\n\n### The Secrets of Python Loops 🔑\n1. **\`range(4)\`**: Tells Python to count 4 times (0, 1, 2, 3).\n2. **The Colon \`:\`**: Always put a colon \`:\` at the end of the \`for\` line!\n3. **Indentation (4 spaces)**: Notice the space before \`robot.move_forward()\`. In Python, indented lines belong **inside** the loop!`,
+        passingScore: 70,
+        questions: [
+          {
+            text: 'What is a LOOP in programming?',
+            options: [
+              { text: 'A way to repeat instructions multiple times without retyping them', isCorrect: true },
+              { text: 'A circular computer screen', isCorrect: false },
+              { text: 'A broken wire inside the mouse', isCorrect: false },
+              { text: 'A type of video game boss', isCorrect: false },
+            ],
+          },
+          {
+            text: 'In Python, how do you repeat an action 5 times?',
+            options: [
+              { text: 'for step in range(5):', isCorrect: true },
+              { text: 'repeat 5 times:', isCorrect: false },
+              { text: 'loop(5):', isCorrect: false },
+              { text: 'do.again(5)', isCorrect: false },
+            ],
+          },
+          {
+            text: 'In Python, how does the computer know which lines are inside a loop?',
+            options: [
+              { text: 'They are indented with spaces underneath the loop line', isCorrect: true },
+              { text: 'They are written in ALL CAPS', isCorrect: false },
+              { text: 'They are drawn in green ink', isCorrect: false },
+              { text: 'They have exclamation marks at the end', isCorrect: false },
+            ],
+          },
+        ],
+      },
+      {
+        levelOrder: 2,
+        lessonOrder: 2,
+        title: 'Patterns & Repetition: Rhythmic Code',
+        explanation: `# Patterns & Repetition: Rhythmic Code 🎨\n\nA **pattern** is something that repeats in a predictable rhythm.\n- In music: 🥁 Boom, Clap, Boom, Clap!\n- In dancing: 💃 Step left, step right, step left, step right!\n- In coding: 🤖 Move, Turn, Move, Turn!\n\nWhen you discover the repeating pattern unit, you can wrap it in a Python loop to do complex tasks with just a few lines of code!`,
+        example: `## Example: Climbing a Staircase in Python 🪜\n\nTo climb 3 steps on a staircase, notice the pattern: **Move Forward + Turn Right + Move Forward + Turn Left**!\n\n\`\`\`python\n# Climbing 3 stairs with a Python loop\nfor stair in range(3):\n    robot.move_forward()\n    robot.turn_right()\n    robot.move_forward()\n    robot.turn_left()\n\`\`\`\n\nBecause all 4 instructions are indented inside \`for stair in range(3):\`, Python repeats the entire pattern 3 times!`,
+        passingScore: 70,
+        questions: [
+          {
+            text: 'What is a PATTERN in computer programming?',
+            options: [
+              { text: 'A sequence of actions that repeats in a predictable way', isCorrect: true },
+              { text: 'A random mistake on screen', isCorrect: false },
+              { text: 'A keyboard shortcut', isCorrect: false },
+              { text: 'A single instruction that only runs once', isCorrect: false },
+            ],
+          },
+          {
+            text: 'What comes next in the pattern list: [🔴, 🔵, 🔴, 🔵, 🔴, ?]',
+            options: [
+              { text: '🔵', isCorrect: true },
+              { text: '🔴', isCorrect: false },
+              { text: '🟢', isCorrect: false },
+              { text: '⭐', isCorrect: false },
+            ],
+          },
+          {
+            text: 'If a Python loop repeats a 3-step pattern 4 times, how many total actions will occur?',
+            options: [
+              { text: '12 actions (3 × 4)', isCorrect: true },
+              { text: '7 actions (3 + 4)', isCorrect: false },
+              { text: '4 actions', isCorrect: false },
+              { text: '1 action', isCorrect: false },
+            ],
+          },
+        ],
+      },
+      {
+        levelOrder: 2,
+        lessonOrder: 3,
+        title: 'Making Decisions: Python If-Statements',
+        explanation: `# Making Decisions: Python If-Statements 🤔\n\nIn real life, you make decisions based on conditions:\n- **If** it is raining 🌧️ $\\rightarrow$ open your umbrella ☔\n- **Else** (if it's sunny) ☀️ $\\rightarrow$ wear sunglasses 😎\n\nIn Python, we use **\`if\`** and **\`else\`** statements to give our programs a brain! The computer checks if a condition is \`True\` or \`False\`, and chooses which code to execute.`,
+        example: `## Example: Robot Wall Sensor in Python 🤖🧱\n\n\`\`\`python\n# Check for walls before moving!\nif robot.is_wall_ahead():\n    robot.turn_left()\n    print("Wall detected! Turned left 🔄")\nelse:\n    robot.move_forward()\n    print("Clear path! Stepped forward 🚶")\n\`\`\`\n\n### Notice the Python Rules 📐:\n1. \`if condition:\` ends with a colon \`:\`\n2. The action to take when True is indented.\n3. \`else:\` also ends with a colon \`:\` and indented action when False.`,
+        passingScore: 70,
+        questions: [
+          {
+            text: 'What is an IF-STATEMENT (Condition) in Python?',
+            options: [
+              { text: 'A way for the computer to make decisions based on whether something is True or False', isCorrect: true },
+              { text: 'A loop that runs forever', isCorrect: false },
+              { text: 'A way to turn the screen brightness up', isCorrect: false },
+              { text: 'A message sent to a printer', isCorrect: false },
+            ],
+          },
+          {
+            text: 'What punctuation symbol must be placed at the end of an if or else line in Python?',
+            options: [
+              { text: 'A colon (:)', isCorrect: true },
+              { text: 'A question mark (?)', isCorrect: false },
+              { text: 'A dollar sign ($)', isCorrect: false },
+              { text: 'A period (.)', isCorrect: false },
+            ],
+          },
+          {
+            text: 'In "if robot.is_wall_ahead(): robot.turn_left()", when does the robot turn left?',
+            options: [
+              { text: 'Only when robot.is_wall_ahead() is True', isCorrect: true },
+              { text: 'Every single time', isCorrect: false },
+              { text: 'Never', isCorrect: false },
+              { text: 'Only when the computer is turned off', isCorrect: false },
+            ],
+          },
+        ],
+      },
+
+      // ----------------------------------------------------
+      // Level 3: Champion Peak — Variables & Combining Skills
+      // ----------------------------------------------------
+      {
+        levelOrder: 3,
+        lessonOrder: 1,
+        title: 'Variables: Python Memory Boxes',
+        explanation: `# Variables: Python Memory Boxes 📦\n\nA **variable** is like a labeled container where Python stores information for later.\n\nImagine having a magic box labeled \`coins\`.\n- 📥 **Create & Store:** \`coins = 0\`\n- 🔍 **Check:** Print \`coins\` to see what is inside\n- ➕ **Update:** Whenever you pick up a coin, add 1 to it: \`coins = coins + 1\` (or \`coins += 1\`)\n\nVariables allow games to remember your score, health, inventory, and player name!`,
+        example: `## Example: Coin Tracker in Python 🪙\n\n\`\`\`python\n# Setting up our inventory variable\nplayer_name = "Alex"\ncoins = 0\n\nprint("Player:", player_name)\nprint("Starting coins:", coins)\n\n# Robot collects a coin!\nrobot.move_forward()\nrobot.pick_up()\ncoins += 1    # Adds 1 coin!\n\nprint("New coin balance:", coins)\n\`\`\`\n\nIn Python:\n- \`=\` is the **assignment operator** (it puts the value into the variable box).\n- \`+= 1\` is a handy shortcut for adding 1 to the current count!`,
+        passingScore: 70,
+        questions: [
+          {
+            text: 'What is a VARIABLE in Python?',
+            options: [
+              { text: 'A named container that stores information or numbers', isCorrect: true },
+              { text: 'A cable plugged into the wall', isCorrect: false },
+              { text: 'A type of computer keyboard', isCorrect: false },
+              { text: 'An error message', isCorrect: false },
+            ],
+          },
+          {
+            text: 'In Python, how do you set a variable named gems to 5?',
+            options: [
+              { text: 'gems = 5', isCorrect: true },
+              { text: 'set gems to 5', isCorrect: false },
+              { text: '5 -> gems', isCorrect: false },
+              { text: 'variable: gems = 5', isCorrect: false },
+            ],
+          },
+          {
+            text: 'If score = 10 and you run "score = score + 5", what is the value of score now?',
+            options: [
+              { text: '15', isCorrect: true },
+              { text: '10', isCorrect: false },
+              { text: '5', isCorrect: false },
+              { text: '50', isCorrect: false },
+            ],
+          },
+        ],
+      },
+      {
+        levelOrder: 3,
+        lessonOrder: 2,
+        title: 'Combining Everything: Building a Python Program',
+        explanation: `# Combining Everything: Building a Python Program 🧩\n\nReal software engineers don't use just one concept at a time. They combine:\n- 🧭 **Sequencing** — giving instructions in exact order\n- 🔁 **Loops** (\`for ... in range():\`) — repeating actions\n- 🤔 **Conditions** (\`if / else\`) — making intelligent choices\n- 📦 **Variables** (\`score = score + 1\`) — remembering data\n\nWhen you connect these superpowers together, you can build full games, smart robots, and incredible apps!`,
+        example: `## Example: The Smart Treasure Hunter 🏆\n\nHere is a complete Python program using all four pillars of coding:\n\n\`\`\`python\n# Complete Treasure Collector Program\ncoins = 0\n\n# Loop 3 times through the corridor\nfor step in range(3):\n    robot.move_forward()\n    if robot.on_coin():\n        robot.pick_up()\n        coins += 1\n        print("Collected a coin! Total:", coins)\n\n# Check winning condition at the end\nif coins == 3:\n    print("🎉 Congratulations! You won the Golden Trophy! 🏆")\nelse:\n    print("Keep searching! Some coins were missed.")\n\`\`\``,
+        passingScore: 70,
+        questions: [
+          {
+            text: 'In Python, which comparison operator checks if two values are equal inside an if-statement?',
+            options: [
+              { text: '== (double equals)', isCorrect: true },
+              { text: '= (single equals)', isCorrect: false },
+              { text: '!=', isCorrect: false },
+              { text: '+', isCorrect: false },
+            ],
+          },
+          {
+            text: 'Can you combine loops, variables, and if-statements in the same Python program?',
+            options: [
+              { text: 'Yes! Real-world software combines all of them together', isCorrect: true },
+              { text: 'No, Python only lets you use one feature per file', isCorrect: false },
+              { text: 'No, loops cannot contain if-statements', isCorrect: false },
+              { text: 'Only on weekends', isCorrect: false },
+            ],
+          },
+          {
+            text: 'What does coins += 1 do in Python?',
+            options: [
+              { text: 'Increases the value of the coins variable by 1', isCorrect: true },
+              { text: 'Resets coins to 0', isCorrect: false },
+              { text: 'Deletes the coins variable', isCorrect: false },
+              { text: 'Multiplies coins by 10', isCorrect: false },
+            ],
+          },
+        ],
+      },
+      {
+        levelOrder: 3,
+        lessonOrder: 3,
+        title: 'Build Your Own: The Python Creator',
+        explanation: `# Build Your Own: The Python Creator 🎨\n\nYou have graduated to a true Python programmer! You understand:\n- Syntax & commands (\`robot.move_forward()\`)\n- Loops (\`for step in range(n):\`)\n- Decisions (\`if / else:\`)\n- Variables (\`coins = 0\`)\n\nIn this Champion Playground, you can design your own navigation algorithm. Experiment with different paths, collect coins, and watch your Python code generate live!`,
+        example: `## Example: Clean Code & Comments 💡\n\nGreat programmers write clean, readable code with comments explaining their thoughts:\n\n\`\`\`python\n# Champion Playground Navigation Algorithm\ncoins = 0\n\n# Step 1: March forward across the courtyard\nfor step in range(4):\n    robot.move_forward()\n    if robot.on_coin():\n        robot.pick_up()\n        coins += 1\n\n# Step 2: Turn towards the victory pedestal\nrobot.turn_right()\nrobot.move_forward()\nprint("Course completed with coins:", coins)\n\`\`\`\n\nRemember: Making mistakes is a natural part of coding. Test, inspect, and celebrate every fix! 🚀`,
+        passingScore: 60,
+        questions: [
+          {
+            text: 'What does the # symbol mean in Python?',
+            options: [
+              { text: 'It starts a comment that Python ignores, written to explain code to humans', isCorrect: true },
+              { text: 'It multiplies two numbers', isCorrect: false },
+              { text: 'It ends the program immediately', isCorrect: false },
+              { text: 'It creates a popup window', isCorrect: false },
+            ],
+          },
+          {
+            text: 'What makes code "clean" and easy to maintain?',
+            options: [
+              { text: 'Clear variable names, consistent indentation, and helpful comments', isCorrect: true },
+              { text: 'Writing all the code on a single line without spaces', isCorrect: false },
+              { text: 'Using random single-letter names like x, y, z for everything', isCorrect: false },
+              { text: 'Never testing the program', isCorrect: false },
+            ],
+          },
+          {
+            text: 'What should a Python programmer do when they see an error message?',
+            options: [
+              { text: 'Read the message, check the line number, fix the issue, and test again', isCorrect: true },
+              { text: 'Give up and never code again', isCorrect: false },
+              { text: 'Delete the entire operating system', isCorrect: false },
+              { text: 'Ignore the error and hope it disappears', isCorrect: false },
+            ],
+          },
+        ],
+      },
+
+      // ----------------------------------------------------
+      // Level 4: Cosmic Citadel — Functions, Debugging, Nested Loops
+      // ----------------------------------------------------
+      {
+        levelOrder: 4,
+        lessonOrder: 1,
+        title: 'Magic Functions: Reusable Spells',
+        explanation: `# Magic Functions: Reusable Spells! 🪄\n\nHave you ever wished you could give a nickname to a whole bunch of steps? In coding, that's called a **Function**!\n\nInstead of writing:\n- \`robot.move_forward()\`\n- \`robot.turn_right()\`\n- \`robot.move_forward()\`\nover and over, you can bundle them into a function called \`jump_square()\`!\n\nIn Python, we create functions using the magic word **\`def\`** (short for *define*).`,
+        example: `## Creating and Calling a Function in Python 🧙\n\n\`\`\`python\n# Define your reusable magic spell\ndef collect_gem():\n    robot.move_forward()\n    robot.pick_up()\n    print("Gem collected! ✨")\n\n# Call your magic spell whenever you need it!\ncollect_gem()\ncollect_gem()\n\`\`\`\n\n### Why Functions are Superpowers 🌟\n1. **\`def function_name():\`** Tells Python: *"Remember these instructions under this name!"*\n2. **Indented body:** All indented lines belong inside the function spell.\n3. **Reuse anywhere:** Call \`collect_gem()\` 10 times without rewriting the steps!`,
+        passingScore: 70,
+        questions: [
+          {
+            text: 'What Python keyword is used to define a new function?',
+            options: [
+              { text: 'def', isCorrect: true },
+              { text: 'make', isCorrect: false },
+              { text: 'function', isCorrect: false },
+              { text: 'create', isCorrect: false },
+            ],
+          },
+          {
+            text: 'Why do programmers use functions?',
+            options: [
+              { text: 'To write code once and reuse it easily, keeping programs organized', isCorrect: true },
+              { text: 'To make the computer run slower', isCorrect: false },
+              { text: 'To make the file size as huge as possible', isCorrect: false },
+              { text: 'To hide their code from friends', isCorrect: false },
+            ],
+          },
+          {
+            text: 'In Python, how do you call or run a function named blast_off?',
+            options: [
+              { text: 'blast_off()', isCorrect: true },
+              { text: 'call blast_off', isCorrect: false },
+              { text: 'run.blast_off', isCorrect: false },
+              { text: 'blast_off[]', isCorrect: false },
+            ],
+          },
+        ],
+      },
+      {
+        levelOrder: 4,
+        lessonOrder: 2,
+        title: 'The Bug Detective: Finding & Fixing Errors',
+        explanation: `# The Bug Detective 🔍🐞\n\nA **bug** is an error or mistake in code. Even the most famous programmers in the world create bugs every single day!\n\nIn Python, there are two main types of bugs:\n1. 🛑 **Syntax Errors:** Forgetting a colon \`:\`, misspelling a word, or mixing up indentation. Python can't even start running!\n2. 🔄 **Logic Errors:** The code runs without crashing, but the robot walks into a wall instead of reaching the goal!\n\n**Debugging** is like solving a mystery:\n1. 🧐 **Inspect:** Read Python's error message and check the line number.\n2. 📍 **Isolate:** Find the exact command that went wrong.\n3. 🛠️ **Fix & Test:** Correct the typo or swap the block, and test again!`,
+        example: `## Example: Spotting and Fixing Python Bugs 🕵️\n\n### ❌ Buggy Code (Syntax Error):\n\`\`\`python\nif robot.is_wall_ahead()    # Missing colon!\nrobot.turn_left()           # Missing indentation!\n\`\`\`\n\n### ✅ Cleaned by the Bug Detective:\n\`\`\`python\nif robot.is_wall_ahead():   # Added colon ':'\n    robot.turn_left()       # Indented with 4 spaces!\nelse:\n    robot.move_forward()\n\`\`\`\nPython error messages are not punishments — they are helpful clues pointing right to the solution! 🔍`,
+        passingScore: 70,
+        questions: [
+          {
+            text: 'What is a "BUG" in computer programming?',
+            options: [
+              { text: 'A mistake or error in the code that causes unexpected behavior', isCorrect: true },
+              { text: 'An insect crawled inside the keyboard', isCorrect: false },
+              { text: 'A type of computer mouse', isCorrect: false },
+              { text: 'A fast way to type code', isCorrect: false },
+            ],
+          },
+          {
+            text: 'If you forget the colon (:) at the end of "if robot.is_wall_ahead():", what error does Python report?',
+            options: [
+              { text: 'SyntaxError', isCorrect: true },
+              { text: 'ColorError', isCorrect: false },
+              { text: 'InternetError', isCorrect: false },
+              { text: 'SleepError', isCorrect: false },
+            ],
+          },
+          {
+            text: 'What should you do when your program encounters a bug?',
+            options: [
+              { text: 'Inspect the line, read the clue, fix the error, and test again', isCorrect: true },
+              { text: 'Throw away the laptop', isCorrect: false },
+              { text: 'Skip the lesson and ignore it', isCorrect: false },
+              { text: 'Press every key at the same time', isCorrect: false },
+            ],
+          },
+        ],
+      },
+      {
+        levelOrder: 4,
+        lessonOrder: 3,
+        title: 'Nested Loops: Loops Inside Loops',
+        explanation: `# Loops Inside Loops! 🌀\n\nWhen a loop lives inside another loop, we call it a **Nested Loop**!\n\nThink of a clock:\n- 🕒 **Outer Loop:** 12 hours\n- ⏱️ **Inner Loop:** 60 minutes for every single hour!\nTotal minutes in half a day = 12 × 60 = 720 minutes!\n\nIn Python, nested loops let you scan 2D game grids, sweep entire rooms, and draw complex patterns with very little code!`,
+        example: `## Example: 2D Grid Sweeper in Python 🧹\n\n\`\`\`python\n# Sweep 3 rows, taking 4 steps in each row\nfor row in range(3):          # Outer loop\n    print("Starting row:", row)\n    for col in range(4):      # Inner loop\n        robot.move_forward()\n    robot.turn_right()\n\`\`\`\n\n### Notice the Indentation Levels 📐:\n- \`for row in range(3):\` (Outer loop, 0 spaces)\n- \`for col in range(4):\` (Indented 4 spaces inside outer loop)\n- \`robot.move_forward()\` (Indented 8 spaces inside inner loop)`,
+        passingScore: 70,
+        questions: [
+          {
+            text: 'What is a NESTED LOOP in Python?',
+            options: [
+              { text: 'A loop placed inside the body of another loop', isCorrect: true },
+              { text: 'A loop that never stops running', isCorrect: false },
+              { text: 'A loop designed to draw birds', isCorrect: false },
+              { text: 'A broken while loop', isCorrect: false },
+            ],
+          },
+          {
+            text: 'If the outer loop runs 3 times and the inner loop runs 4 times, how many times does the inner action run?',
+            options: [
+              { text: '12 times (3 × 4)', isCorrect: true },
+              { text: '7 times (3 + 4)', isCorrect: false },
+              { text: '4 times', isCorrect: false },
+              { text: '1 time', isCorrect: false },
+            ],
+          },
+          {
+            text: 'How are statements inside an inner nested loop indented in Python?',
+            options: [
+              { text: 'Indented twice (typically 8 spaces) to show they belong inside both loops', isCorrect: true },
+              { text: 'Aligned with no spaces at the start of the line', isCorrect: false },
+              { text: 'Written backwards', isCorrect: false },
+              { text: 'Surrounded by parentheses', isCorrect: false },
+            ],
+          },
+        ],
+      },
+      {
+        levelOrder: 4,
+        lessonOrder: 4,
+        title: 'The Grand Master Quest: Python Master',
+        explanation: `# The Grand Master Quest 🌌👑\n\nYou have reached the core of the Cosmic Citadel!\n\nThis is the ultimate test combining **everything** in your programming journey:\n- 🧭 **Sequencing**: Pinpoint precision in your instructions\n- 🔁 **Loops**: Code efficiency with \`for ... in range()\`\n- 📦 **Variables**: Tracking keys and scores (\`keys += 1\`)\n- 🪄 **Functions**: Reusable modular code blocks (\`def\`)\n- 🤔 **Conditions**: Unlocking gates only when conditions are met (\`if keys > 0:\`)\n\nSolve the maze, unlock the cosmic portal, and graduate as a certified Grand Master Python Coder! 🎓`,
+        example: `## The Grand Master Python Blueprint 🗺️\n\n\`\`\`python\n# Grand Master Citadel Solution\nkeys = 0\ncoins = 0\n\ndef navigate_citadel():\n    global keys, coins\n    \n    # 1. Reach the Golden Key\n    for step in range(4):\n        robot.move_forward()\n    keys += 1\n    print("🗝️ Key acquired!")\n    \n    # 2. Unlock the Cosmic Gate\n    robot.turn_right()\n    robot.move_forward()\n    if keys > 0 and robot.is_at_door():\n        robot.unlock_door()\n        print("🚪 Gate unlocked!")\n    \n    # 3. Reach the Citadel Core!\n    for step in range(2):\n        robot.move_forward()\n    print("🌌 Reached the Cosmic Citadel Core! Victory!")\n\nnavigate_citadel()\n\`\`\``,
+        passingScore: 70,
+        questions: [
+          {
+            text: 'What makes a program truly "efficient" and well-engineered?',
+            options: [
+              { text: 'Accomplishing the goal cleanly with the fewest, clearest instructions and reusable functions', isCorrect: true },
+              { text: 'Using 100 blocks when 3 blocks could do the same job', isCorrect: false },
+              { text: 'Making the computer run as hot as possible', isCorrect: false },
+              { text: 'Typing without looking at the screen', isCorrect: false },
+            ],
+          },
+          {
+            text: 'Which Python features work together in the Grand Master Quest?',
+            options: [
+              { text: 'Sequences, loops, conditions, variables, and functions — all cooperating seamlessly!', isCorrect: true },
+              { text: 'Only sequences and nothing else', isCorrect: false },
+              { text: 'Only print statements', isCorrect: false },
+              { text: 'Only comments', isCorrect: false },
+            ],
+          },
+          {
+            text: 'What is the most valuable superpower a programmer has?',
+            options: [
+              { text: 'Curiosity, persistence, and breaking big problems down into simple steps', isCorrect: true },
+              { text: 'Memorizing thousands of lines of text', isCorrect: false },
+              { text: 'Having a giant glowing keyboard', isCorrect: false },
+              { text: 'Never asking for help', isCorrect: false },
+            ],
+          },
+        ],
+      },
+    ];
+
+    for (const item of pythonCurriculum) {
+      // Find level id
+      const levelRes = await query('SELECT id FROM levels WHERE order_index = $1', [item.levelOrder]);
+      if (levelRes.rows.length === 0) continue;
+      const levelId = levelRes.rows[0].id;
+
+      // Update lesson
+      const lessonRes = await query(
+        `UPDATE lessons 
+         SET title = $1, explanation = $2, example = $3 
+         WHERE level_id = $4 AND order_index = $5 
+         RETURNING id`,
+        [item.title, item.explanation, item.example, levelId, item.lessonOrder]
+      );
+
+      if (lessonRes.rows.length === 0) continue;
+      const lessonId = lessonRes.rows[0].id;
+
+      // Ensure quiz exists
+      let quizId: number;
+      const quizRes = await query('SELECT id FROM quizzes WHERE lesson_id = $1', [lessonId]);
+      if (quizRes.rows.length === 0) {
+        const newQuiz = await query(
+          'INSERT INTO quizzes (lesson_id, passing_score) VALUES ($1, $2) RETURNING id',
+          [lessonId, item.passingScore]
+        );
+        quizId = newQuiz.rows[0].id;
+      } else {
+        quizId = quizRes.rows[0].id;
+        await query('UPDATE quizzes SET passing_score = $1 WHERE id = $2', [item.passingScore, quizId]);
+      }
+
+      // Update quiz questions
+      await query('DELETE FROM quiz_questions WHERE quiz_id = $1', [quizId]);
+      for (let qIdx = 0; qIdx < item.questions.length; qIdx++) {
+        const q = item.questions[qIdx];
+        await query(
+          'INSERT INTO quiz_questions (quiz_id, question_text, options, order_index) VALUES ($1, $2, $3, $4)',
+          [quizId, q.text, JSON.stringify(q.options), qIdx + 1]
+        );
+      }
+    }
+
+    console.log('✅ Python curriculum and quizzes synced across all 13 lessons!');
+  } catch (err) {
+    console.error('Failed to update curriculum with Python:', err);
   }
 }
 
@@ -1212,6 +1781,9 @@ export async function seedDatabase(): Promise<void> {
   await query('UPDATE users SET teacher_id = (SELECT id FROM users WHERE username = $1) WHERE username = $2', ['teacher1', 'coder_kid']);
 
   console.log(`🔑 Learner "coder_kid" enrollment key: ${learnerEnrollmentKey}`);
+
+  // Apply Python curriculum and quizzes
+  await updateCurriculumWithPython();
 
   console.log('✅ Database seeded with levels, lessons, quizzes, badges, and demo users');
 }

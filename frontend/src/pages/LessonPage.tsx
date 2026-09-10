@@ -406,6 +406,45 @@ export default function LessonPage() {
         .replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>');
     };
 
+    const highlightPythonHtml = (code: string): string => {
+      const escapeHtml = (str: string) =>
+        str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+      return code
+        .split('\n')
+        .map(line => {
+          const commentIdx = line.indexOf('#');
+          const codePart = commentIdx >= 0 ? line.slice(0, commentIdx) : line;
+          const commentPart = commentIdx >= 0 ? line.slice(commentIdx) : '';
+
+          let escaped = escapeHtml(codePart);
+
+          // Strings
+          escaped = escaped.replace(/(["'])(?:(?=(\\?))\2.)*?\1/g, '<span class="code-str">$&</span>');
+
+          // Keywords
+          escaped = escaped.replace(
+            /\b(def|return|if|elif|else|for|while|in|range|True|False|None|and|or|not|print|pass|import|from|class)\b/g,
+            '<span class="code-kw">$1</span>'
+          );
+
+          // Robot object & calls
+          escaped = escaped.replace(/\brobot\.([a-zA-Z_]\w*)/g, '<span class="code-obj">robot</span>.<span class="code-fn">$1</span>');
+
+          // Function calls
+          escaped = escaped.replace(/\b([a-zA-Z_]\w*)(?=\s*\()/g, '<span class="code-fn">$1</span>');
+
+          // Numbers
+          escaped = escaped.replace(/\b(\d+)\b/g, '<span class="code-num">$1</span>');
+
+          if (commentPart) {
+            return escaped + `<span class="code-com">${escapeHtml(commentPart)}</span>`;
+          }
+          return escaped;
+        })
+        .join('\n');
+    };
+
     const lines = cleanText.split('\n');
     const result: string[] = [];
     let i = 0;
@@ -416,6 +455,35 @@ export default function LessonPage() {
 
       if (!trimmed) {
         i++;
+        continue;
+      }
+
+      // Fenced Code Block: ```lang ... ```
+      if (trimmed.startsWith('```')) {
+        const langMatch = trimmed.match(/^```(\w+)?/);
+        const lang = (langMatch && langMatch[1]) ? langMatch[1].toLowerCase() : 'python';
+        const codeLines: string[] = [];
+        i++;
+        while (i < lines.length && !lines[i].trim().startsWith('```')) {
+          codeLines.push(lines[i]);
+          i++;
+        }
+        if (i < lines.length && lines[i].trim().startsWith('```')) {
+          i++;
+        }
+
+        const rawCode = codeLines.join('\n');
+        const highlighted = highlightPythonHtml(rawCode);
+
+        result.push(`
+          <div class="code-block-container">
+            <div class="code-block-header">
+              <span class="code-lang-tag">🐍 ${lang === 'python' ? 'Python' : lang.toUpperCase()}</span>
+              <span class="code-header-tip">Python Code Example</span>
+            </div>
+            <pre class="code-snippet-box"><code>${highlighted}</code></pre>
+          </div>
+        `);
         continue;
       }
 
