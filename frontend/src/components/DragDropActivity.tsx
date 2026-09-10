@@ -105,8 +105,14 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
   const [starResult, setStarResult] = useState<StarBreakdown | null>(null);
 
   // Live Python Code View Mode
-  const [codeViewMode, setCodeViewMode] = useState<'blocks' | 'split' | 'python'>('split');
+  const [codeViewMode, setCodeViewMode] = useState<'blocks' | 'split' | 'editor'>('split');
+  const [blockSyntaxMode, setBlockSyntaxMode] = useState<'visual' | 'python'>('visual');
+  const [pythonCodeText, setPythonCodeText] = useState<string>('');
   const [copiedPython, setCopiedPython] = useState(false);
+  const [coachCodiMessage, setCoachCodiMessage] = useState<{
+    type: 'info' | 'success' | 'warning' | 'error';
+    text: string;
+  } | null>(null);
 
   const draggedItem = useRef<{ block: Block; source: 'palette' | 'dropzone'; index: number } | null>(null);
   const animationTimeouts = useRef<NodeJS.Timeout[]>([]);
@@ -122,6 +128,15 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
   useEffect(() => {
     reset();
   }, [activity]);
+
+  // Keep pythonCodeText in sync when user builds with blocks
+  useEffect(() => {
+    if (codeViewMode !== 'editor') {
+      const generated = generatePythonScript(dropZone);
+      setPythonCodeText(generated);
+      validateCode(generated);
+    }
+  }, [dropZone, codeViewMode]);
 
   const clearPendingAnimations = () => {
     animationTimeouts.current.forEach(clearTimeout);
@@ -261,11 +276,369 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
   };
 
   const copyPythonCode = () => {
-    const rawPy = generatePythonScript(dropZone);
+    const rawPy = codeViewMode === 'editor' ? pythonCodeText : generatePythonScript(dropZone);
     navigator.clipboard.writeText(rawPy).then(() => {
       setCopiedPython(true);
       setTimeout(() => setCopiedPython(false), 2000);
     });
+  };
+
+  const getBlockPythonLabel = (block: Block): string => {
+    switch (block.type) {
+      case 'move':
+        return 'robot.move_forward()';
+      case 'turn-left':
+        return 'robot.turn_left()';
+      case 'turn-right':
+        return 'robot.turn_right()';
+      case 'pick-up':
+        return 'coins += 1; robot.pick_up()';
+      case 'repeat': {
+        const count = getBlockRepeatCount(block);
+        return `for step in range(${count}):`;
+      }
+      case 'if-wall': {
+        const dir = (block as any).turnDirection === 'right' ? 'turn_right' : 'turn_left';
+        return `if robot.is_wall_ahead(): robot.${dir}()`;
+      }
+      case 'step': {
+        if (block.id === 'step-wake') return 'wake_up()';
+        if (block.id === 'step-brush') return 'brush_teeth()';
+        if (block.id === 'step-dress') return 'get_dressed()';
+        if (block.id === 'step-eat') return 'eat_breakfast()';
+        if (block.id === 'step-school') return 'go_to_school()';
+        const clean = block.label
+          .replace(/^[^\w\s]+/, '')
+          .trim()
+          .toLowerCase()
+          .replace(/\s+/g, '_');
+        return `${clean || 'step'}()`;
+      }
+      default:
+        return block.label;
+    }
+  };
+
+  const validateCode = (code: string) => {
+    if (!code || code.trim().length === 0) {
+      setCoachCodiMessage({
+        type: 'info',
+        text: '💡 Start typing Python commands or click snippets above to build your program!',
+      });
+      return;
+    }
+
+    const lines = code.split('\n');
+    let hasStatements = false;
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const trimmed = line.trim();
+
+      if (!trimmed || trimmed.startsWith('#')) continue;
+      hasStatements = true;
+
+      // Check loops: for <var> in range(...)
+      if (trimmed.startsWith('for ')) {
+        if (!trimmed.endsWith(':')) {
+          setCoachCodiMessage({
+            type: 'warning',
+            text: `⚠️ Line ${i + 1}: Loops in Python must end with a colon ':' (e.g. for step in range(3):)`,
+          });
+          return;
+        }
+        if (!/for\s+\w+\s+in\s+range\s*\(\s*\d+\s*\)\s*:/.test(trimmed)) {
+          setCoachCodiMessage({
+            type: 'warning',
+            text: `⚠️ Line ${i + 1}: Loop format should be: for step in range(number):`,
+          });
+          return;
+        }
+        continue;
+      }
+
+      // Check if statement
+      if (trimmed.startsWith('if ')) {
+        if (!trimmed.endsWith(':')) {
+          setCoachCodiMessage({
+            type: 'warning',
+            text: `⚠️ Line ${i + 1}: If-statements in Python must end with a colon ':' (e.g. if robot.is_wall_ahead():)`,
+          });
+          return;
+        }
+        continue;
+      }
+
+      // Check else statement
+      if (trimmed.startsWith('else')) {
+        if (!trimmed.endsWith(':')) {
+          setCoachCodiMessage({
+            type: 'warning',
+            text: `⚠️ Line ${i + 1}: Else statements must end with a colon ':'`,
+          });
+          return;
+        }
+        continue;
+      }
+
+      // Known valid statements
+      const valid =
+        trimmed.includes('robot.move_forward(') ||
+        trimmed.includes('robot.turn_left(') ||
+        trimmed.includes('robot.turn_right(') ||
+        trimmed.includes('robot.pick_up(') ||
+        trimmed.includes('coins += 1') ||
+        trimmed.includes('coins = ') ||
+        trimmed.includes('print(') ||
+        trimmed === 'pass' ||
+        trimmed.includes('wake_up(') ||
+        trimmed.includes('brush_teeth(') ||
+        trimmed.includes('get_dressed(') ||
+        trimmed.includes('eat_breakfast(') ||
+        trimmed.includes('go_to_school(');
+
+      if (!valid) {
+        setCoachCodiMessage({
+          type: 'warning',
+          text: `⚠️ Line ${i + 1}: Unrecognized instruction "${trimmed}". Try robot.move_forward(), robot.turn_right(), or robot.turn_left().`,
+        });
+        return;
+      }
+    }
+
+    if (!hasStatements) {
+      setCoachCodiMessage({
+        type: 'info',
+        text: '💡 Add some actions like robot.move_forward() to get started!',
+      });
+    } else {
+      setCoachCodiMessage({
+        type: 'success',
+        text: '✅ Python syntax looks great! Click ▶️ Run Python Script to test it live!',
+      });
+    }
+  };
+
+  const parseSingleStatement = (stmt: string, lineNum: number, idNum: number): { block?: Block; error?: string } => {
+    const clean = stmt.replace(/;.*$/, '').trim();
+
+    if (clean === 'pass' || clean.startsWith('print(') || clean.startsWith('coins = 0')) {
+      return {};
+    }
+    if (clean.includes('robot.move_forward(') || clean === 'move_forward()') {
+      return { block: { id: `py-m-${idNum}`, type: 'move', label: '🔵 Move Forward', color: '#54A0FF' } };
+    }
+    if (clean.includes('robot.turn_left(') || clean === 'turn_left()') {
+      return { block: { id: `py-tl-${idNum}`, type: 'turn-left', label: '🟠 Turn Left', color: '#FF9F43' } };
+    }
+    if (clean.includes('robot.turn_right(') || clean === 'turn_right()') {
+      return { block: { id: `py-tr-${idNum}`, type: 'turn-right', label: '🟢 Turn Right', color: '#01A3A4' } };
+    }
+    if (clean.includes('robot.pick_up(') || clean.includes('coins += 1') || clean.includes('coins = coins + 1')) {
+      return { block: { id: `py-pick-${idNum}`, type: 'pick-up', label: '🟡 Pick Up Coin', color: '#FECA57' } };
+    }
+    if (clean.includes('wake_up(')) {
+      return { block: { id: 'step-wake', type: 'step', label: '⏰ Wake up', color: '#54A0FF' } };
+    }
+    if (clean.includes('brush_teeth(')) {
+      return { block: { id: 'step-brush', type: 'step', label: '🪥 Brush teeth', color: '#FF6B6B' } };
+    }
+    if (clean.includes('get_dressed(')) {
+      return { block: { id: 'step-dress', type: 'step', label: '👕 Get dressed', color: '#01A3A4' } };
+    }
+    if (clean.includes('eat_breakfast(')) {
+      return { block: { id: 'step-eat', type: 'step', label: '🥣 Eat breakfast', color: '#FF9F43' } };
+    }
+    if (clean.includes('go_to_school(')) {
+      return { block: { id: 'step-school', type: 'step', label: '🎒 Go to school', color: '#5F27CD' } };
+    }
+
+    return { error: `Line ${lineNum}: Unrecognized command "${stmt}".` };
+  };
+
+  const parsePythonScriptToBlocks = (script: string): { blocks: Block[]; errors: string[] } => {
+    const lines = script.split('\n');
+    const blocks: Block[] = [];
+    const errors: string[] = [];
+
+    let i = 0;
+    let counter = 1;
+
+    while (i < lines.length) {
+      const rawLine = lines[i];
+      const trimmed = rawLine.trim();
+
+      if (!trimmed || trimmed.startsWith('#')) {
+        i++;
+        continue;
+      }
+
+      // for loop
+      const forMatch = trimmed.match(/^for\s+([a-zA-Z_]\w*)\s+in\s+range\s*\(\s*(\d+)\s*\)\s*(:?)/);
+      if (forMatch) {
+        if (!forMatch[3]) {
+          errors.push(`Line ${i + 1}: Missing colon ':' on loop line!`);
+        }
+        const count = parseInt(forMatch[2], 10);
+        const innerBlocks: Block[] = [];
+        let j = i + 1;
+        while (j < lines.length) {
+          const nextRaw = lines[j];
+          const nextTrimmed = nextRaw.trim();
+          if (!nextTrimmed) {
+            j++;
+            continue;
+          }
+          if (nextTrimmed.startsWith('#')) {
+            j++;
+            continue;
+          }
+          // Indented body
+          if (!/^\s+/.test(nextRaw)) {
+            break;
+          }
+          const parsed = parseSingleStatement(nextTrimmed, j + 1, counter++);
+          if (parsed.error) {
+            errors.push(parsed.error);
+          } else if (parsed.block) {
+            innerBlocks.push(parsed.block);
+          }
+          j++;
+        }
+
+        const span = Math.max(1, innerBlocks.length);
+        const repeatBlock: Block = {
+          id: `py-r-${counter++}`,
+          type: 'repeat',
+          label: `🔁 Repeat ${count} times`,
+          color: '#da77f2',
+          repeatCount: count,
+          repeatSpan: span,
+        } as any;
+
+        blocks.push(repeatBlock);
+        blocks.push(...innerBlocks);
+        i = j;
+        continue;
+      }
+
+      // if condition
+      const ifMatch = trimmed.match(/^if\s+robot\.is_wall_ahead\s*\(\s*\)\s*(:?)/);
+      if (ifMatch) {
+        if (!ifMatch[1]) {
+          errors.push(`Line ${i + 1}: Missing colon ':' on if line!`);
+        }
+        let turnDir: 'left' | 'right' = 'left';
+        let j = i + 1;
+        while (j < lines.length) {
+          const nextRaw = lines[j];
+          const nextTrimmed = nextRaw.trim();
+          if (!nextTrimmed || nextTrimmed.startsWith('#')) {
+            j++;
+            continue;
+          }
+          if (/^\s+/.test(nextRaw)) {
+            if (nextTrimmed.includes('turn_right')) turnDir = 'right';
+            if (nextTrimmed.includes('turn_left')) turnDir = 'left';
+            j++;
+          } else {
+            break;
+          }
+        }
+        blocks.push({
+          id: `py-if-${counter++}`,
+          type: 'if-wall',
+          label: `🟩 If Wall → Turn ${turnDir === 'right' ? 'Right' : 'Left'}`,
+          color: '#2ECC71',
+          turnDirection: turnDir,
+        } as any);
+        i = j;
+        continue;
+      }
+
+      const parsed = parseSingleStatement(trimmed, i + 1, counter++);
+      if (parsed.error) {
+        errors.push(parsed.error);
+      } else if (parsed.block) {
+        blocks.push(parsed.block);
+      }
+      i++;
+    }
+
+    return { blocks, errors };
+  };
+
+  const insertSnippet = (snippet: string) => {
+    setPythonCodeText(prev => {
+      const trimmed = prev.trimEnd();
+      const updated = trimmed.length > 0 ? `${trimmed}\n${snippet}` : snippet;
+      validateCode(updated);
+      return updated;
+    });
+  };
+
+  const handleEditorKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      const textarea = e.currentTarget;
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const val = textarea.value;
+      const updated = val.substring(0, start) + '    ' + val.substring(end);
+      setPythonCodeText(updated);
+      validateCode(updated);
+      setTimeout(() => {
+        textarea.selectionStart = textarea.selectionEnd = start + 4;
+      }, 0);
+    }
+  };
+
+  const syncPythonToBlocks = () => {
+    const { blocks, errors } = parsePythonScriptToBlocks(pythonCodeText);
+    if (errors.length > 0) {
+      setCoachCodiMessage({ type: 'error', text: errors[0] });
+      sfx.wall();
+      return;
+    }
+    if (blocks.length === 0) {
+      setCoachCodiMessage({ type: 'warning', text: 'Nothing to convert! Type some commands first.' });
+      return;
+    }
+    applyNewDropZone(blocks, palette);
+    setCoachCodiMessage({ type: 'success', text: `🧱 Converted ${blocks.length} Python lines into blocks!` });
+  };
+
+  const syncBlocksToPython = () => {
+    const generated = generatePythonScript(dropZone);
+    setPythonCodeText(generated);
+    validateCode(generated);
+    setCoachCodiMessage({ type: 'info', text: '🔄 Reset Python editor code from current blocks.' });
+  };
+
+  const runPythonProgram = () => {
+    if (isRunning) return;
+    const { blocks, errors } = parsePythonScriptToBlocks(pythonCodeText);
+
+    if (errors.length > 0) {
+      setCoachCodiMessage({ type: 'error', text: errors[0] });
+      sfx.wall();
+      return;
+    }
+
+    if (blocks.length === 0) {
+      setCoachCodiMessage({
+        type: 'warning',
+        text: 'Your Python program is empty! Click the snippet buttons above or type commands to start.',
+      });
+      return;
+    }
+
+    setCoachCodiMessage({
+      type: 'success',
+      text: `🚀 Running your Python program (${blocks.length} statements)!`,
+    });
+
+    applyNewDropZone(blocks, palette);
   };
 
   const getBlockClass = (type: string) => {
@@ -1348,15 +1721,19 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
           {palette.map((block, i) => (
             <div
               key={`p-${block.id}-${i}`}
-              className={`code-block ${getBlockClass(block.type)}`}
+              className={`code-block ${getBlockClass(block.type)} ${blockSyntaxMode === 'python' ? 'python-syntax-label' : ''}`}
               draggable
               onDragStart={() => handleDragStart(block, 'palette', i)}
               onClick={() => addBlock(block, i)}
               style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
               title="Click or drag into your program"
             >
-              <span>{block.type === 'repeat' ? '🔁 Repeat' : block.label}</span>
-              {block.type === 'repeat' && (
+              {blockSyntaxMode === 'python' ? (
+                <span className="code-pill">{getBlockPythonLabel(block)}</span>
+              ) : (
+                <span>{block.type === 'repeat' ? '🔁 Repeat' : block.label}</span>
+              )}
+              {block.type === 'repeat' && blockSyntaxMode !== 'python' && (
                 <span
                   onClick={(e) => e.stopPropagation()}
                   onMouseDown={(e) => e.stopPropagation()}
@@ -1397,7 +1774,7 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
       {/* Drop zone and Python Mirror */}
       <div className="mb-lg">
         <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
             <span>🎯 Your Program</span>
             {expectedBlockCount > 0 && (
               <span
@@ -1414,6 +1791,14 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
                 {dropZone.length} / {expectedBlockCount} blocks placed {dropZone.length >= expectedBlockCount ? '✓' : ''}
               </span>
             )}
+            <button
+              type="button"
+              className={`syntax-toggle-btn ${blockSyntaxMode === 'python' ? 'active-python' : ''}`}
+              onClick={() => setBlockSyntaxMode(prev => (prev === 'visual' ? 'python' : 'visual'))}
+              title="Toggle between Friendly Block Labels and real Python Syntax on tiles"
+            >
+              {blockSyntaxMode === 'python' ? '🐍 Python Statements' : '🧱 Block Labels'}
+            </button>
           </div>
           <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
             <span style={{ fontSize: '0.75rem', color: 'var(--color-text-dim)', fontWeight: 600, marginRight: '4px' }}>VIEW:</span>
@@ -1431,18 +1816,25 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
               className={`btn btn-xs ${codeViewMode === 'split' ? 'btn-primary' : 'btn-ghost'}`}
               onClick={() => setCodeViewMode('split')}
               style={{ fontSize: '0.75rem', padding: '2px 8px' }}
-              title="Show Blocks and Python side-by-side"
+              title="Show Blocks and Python Studio side-by-side"
             >
               ⚡ Split View
             </button>
             <button
               type="button"
-              className={`btn btn-xs ${codeViewMode === 'python' ? 'btn-primary' : 'btn-ghost'}`}
-              onClick={() => setCodeViewMode('python')}
+              className={`btn btn-xs ${codeViewMode === 'editor' ? 'btn-primary' : 'btn-ghost'}`}
+              onClick={() => {
+                setCodeViewMode('editor');
+                if (!pythonCodeText || pythonCodeText.trim().length === 0) {
+                  const generated = generatePythonScript(dropZone);
+                  setPythonCodeText(generated);
+                  validateCode(generated);
+                }
+              }}
               style={{ fontSize: '0.75rem', padding: '2px 8px' }}
-              title="Show Python code only"
+              title="Interactive Python Code Studio (Type, insert snippets, and run directly)"
             >
-              🐍 Python Code
+              💻 Python Studio
             </button>
           </div>
         </label>
@@ -1517,7 +1909,7 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
               return (
                 <div
                   key={`d-${block.id}-${i}`}
-                  className={`code-block ${getBlockClass(block.type)}`}
+                  className={`code-block ${getBlockClass(block.type)} ${blockSyntaxMode === 'python' ? 'python-syntax-label' : ''}`}
                   draggable
                   onDragStart={() => handleDragStart(block, 'dropzone', i)}
                   onDragOver={(e) => {
@@ -1549,7 +1941,9 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
                         ↳ in loop
                       </span>
                     )}
-                    {block.type === 'repeat' ? (
+                    {blockSyntaxMode === 'python' ? (
+                      <span className="code-pill">{getBlockPythonLabel(block)}</span>
+                    ) : block.type === 'repeat' ? (
                       <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                         <span>🔁 Repeat</span>
                         <select
@@ -1734,29 +2128,176 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
             </div>
           )}
 
-          {(codeViewMode === 'python' || codeViewMode === 'split') && (
-            <div className="python-mirror-panel">
-              <div className="python-mirror-header">
+          {(codeViewMode === 'editor' || codeViewMode === 'split') && (
+            <div className="python-studio-container">
+              {/* Studio Header */}
+              <div className="python-studio-header">
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontSize: '1.2rem' }}>🐍</span>
-                  <span style={{ color: '#60a5fa', fontWeight: 700, fontSize: '0.92rem' }}>Python Code Mirror</span>
-                  <span style={{ fontSize: '0.75rem', background: 'rgba(96, 165, 250, 0.2)', color: '#93c5fd', padding: '2px 8px', borderRadius: '12px', fontWeight: 600 }}>Live Generator</span>
+                  <span style={{ fontSize: '1.25rem' }}>🐍</span>
+                  <span style={{ color: '#60a5fa', fontWeight: 700, fontSize: '0.95rem' }}>Python Code Studio</span>
+                  <span style={{ fontSize: '0.72rem', background: 'rgba(96, 165, 250, 0.2)', color: '#93c5fd', padding: '2px 8px', borderRadius: '12px', fontWeight: 600 }}>
+                    Write &amp; Run
+                  </span>
+                </div>
+                <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                  <button
+                    type="button"
+                    className="btn btn-xs btn-ghost"
+                    onClick={syncBlocksToPython}
+                    style={{ fontSize: '0.78rem', color: '#93c5fd', border: '1px solid rgba(147, 197, 253, 0.3)', padding: '3px 8px' }}
+                    title="Refresh code from current block dropzone"
+                  >
+                    🔄 Reset from Blocks
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-xs btn-ghost"
+                    onClick={copyPythonCode}
+                    style={{ fontSize: '0.78rem', color: '#93c5fd', border: '1px solid rgba(147, 197, 253, 0.3)', padding: '3px 8px' }}
+                    title="Copy Python code to clipboard"
+                  >
+                    {copiedPython ? 'Copied! ✓' : '📋 Copy'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Quick Snippet Insert Toolbar */}
+              <div className="quick-snippet-bar">
+                <span style={{ fontSize: '0.72rem', color: '#94a3b8', fontWeight: 700, marginRight: '4px' }}>INSERT:</span>
+                <button
+                  type="button"
+                  className="snippet-chip"
+                  onClick={() => insertSnippet('robot.move_forward()')}
+                  title="Insert Move Forward"
+                >
+                  + move_forward()
+                </button>
+                <button
+                  type="button"
+                  className="snippet-chip"
+                  onClick={() => insertSnippet('robot.turn_right()')}
+                  title="Insert Turn Right"
+                >
+                  + turn_right()
+                </button>
+                <button
+                  type="button"
+                  className="snippet-chip"
+                  onClick={() => insertSnippet('robot.turn_left()')}
+                  title="Insert Turn Left"
+                >
+                  + turn_left()
+                </button>
+                <button
+                  type="button"
+                  className="snippet-chip"
+                  onClick={() => insertSnippet('for step in range(2):\n    robot.move_forward()')}
+                  title="Insert Repeat Loop (2x)"
+                >
+                  + for loop (2x)
+                </button>
+                <button
+                  type="button"
+                  className="snippet-chip"
+                  onClick={() => insertSnippet('for step in range(3):\n    robot.move_forward()')}
+                  title="Insert Repeat Loop (3x)"
+                >
+                  + for loop (3x)
+                </button>
+                <button
+                  type="button"
+                  className="snippet-chip"
+                  onClick={() => insertSnippet('if robot.is_wall_ahead():\n    robot.turn_left()\nelse:\n    robot.move_forward()')}
+                  title="Insert Wall Sensing Condition"
+                >
+                  + if wall
+                </button>
+                <button
+                  type="button"
+                  className="snippet-chip"
+                  onClick={() => insertSnippet('coins += 1\nrobot.pick_up()')}
+                  title="Insert Coin Pickup"
+                >
+                  + pick_up()
+                </button>
+                <button
+                  type="button"
+                  className="snippet-chip"
+                  onClick={() => insertSnippet('# My robot plan')}
+                  title="Insert Comment"
+                >
+                  + # comment
+                </button>
+              </div>
+
+              {/* Code Editor with Line Numbers */}
+              <div className="python-editor-wrapper">
+                <div className="python-line-numbers">
+                  {Array.from(
+                    { length: Math.max(7, (pythonCodeText || '').split('\n').length) },
+                    (_, i) => (
+                      <div key={i}>{i + 1}</div>
+                    )
+                  )}
+                </div>
+                <textarea
+                  className="python-code-textarea"
+                  value={pythonCodeText}
+                  onChange={(e) => {
+                    setPythonCodeText(e.target.value);
+                    validateCode(e.target.value);
+                  }}
+                  onKeyDown={handleEditorKeyDown}
+                  spellCheck={false}
+                  placeholder="# Type Python code here or click snippets above!&#10;robot.move_forward()"
+                  style={{ minHeight: codeViewMode === 'editor' ? '280px' : '200px' }}
+                />
+              </div>
+
+              {/* Coach Codi Bar */}
+              {coachCodiMessage && (
+                <div className={`coach-codi-bar status-${coachCodiMessage.type}`}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span>🤖</span>
+                    <span>{coachCodiMessage.text}</span>
+                  </div>
+                  <span style={{ fontSize: '0.72rem', opacity: 0.8 }}>Coach Codi</span>
+                </div>
+              )}
+
+              {/* Studio Actions Bar */}
+              <div className="python-studio-actions">
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-primary"
+                    onClick={runPythonProgram}
+                    disabled={isRunning || !pythonCodeText.trim()}
+                    style={{ background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', fontWeight: 700 }}
+                  >
+                    {isRunning ? '⏳ Running...' : '▶️ Run Python Script'}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-ghost"
+                    onClick={syncPythonToBlocks}
+                    style={{ fontSize: '0.8rem', color: '#cbd5e1' }}
+                    title="Convert this Python script into blocks in your dropzone"
+                  >
+                    🧱 Convert to Blocks
+                  </button>
                 </div>
                 <button
                   type="button"
                   className="btn btn-xs btn-ghost"
-                  onClick={copyPythonCode}
-                  style={{ fontSize: '0.8rem', color: '#93c5fd', border: '1px solid rgba(147, 197, 253, 0.3)', padding: '3px 10px' }}
-                  title="Copy Python code to clipboard"
+                  onClick={() => {
+                    setPythonCodeText('');
+                    validateCode('');
+                  }}
+                  style={{ fontSize: '0.75rem', color: '#94a3b8' }}
                 >
-                  {copiedPython ? 'Copied! ✓' : '📋 Copy Python'}
+                  🧹 Clear Code
                 </button>
-              </div>
-              <pre className="python-mirror-body">
-                <code dangerouslySetInnerHTML={{ __html: highlightPython(generatePythonScript(dropZone)) }} />
-              </pre>
-              <div style={{ padding: '10px 16px', background: '#0b1120', borderTop: '1px solid #1e293b', fontSize: '0.8rem', color: '#94a3b8', lineHeight: 1.5 }}>
-                💡 <strong>Python Insight:</strong> Each block you drop translates into real Python code! Notice colons <code>:</code> after <code>for</code> or <code>if</code>, and 4-space indentation for code inside loops.
               </div>
             </div>
           )}

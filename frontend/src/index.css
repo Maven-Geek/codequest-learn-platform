@@ -1623,6 +1623,190 @@ textarea.form-input {
 }
 
 /* ============================================================
+   DUAL-MODE PYTHON WORKSPACE & STUDIO
+   ============================================================ */
+
+.syntax-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-dim);
+  transition: all var(--transition-fast);
+}
+
+.syntax-toggle-btn:hover {
+  background: var(--color-surface-dim);
+  color: var(--color-text);
+}
+
+.syntax-toggle-btn.active-python {
+  background: rgba(96, 165, 250, 0.15);
+  border-color: #60a5fa;
+  color: #2563eb;
+  box-shadow: 0 0 10px rgba(96, 165, 250, 0.2);
+}
+
+/* Parsons Mode Block Label Styling */
+.code-block.python-syntax-label {
+  font-family: 'Consolas', 'Monaco', monospace !important;
+  font-size: 0.88rem !important;
+  letter-spacing: -0.01em;
+  border-left-width: 5px !important;
+}
+
+.code-block.python-syntax-label .code-pill {
+  background: rgba(0, 0, 0, 0.35);
+  padding: 1px 7px;
+  border-radius: 4px;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+/* Python Studio Container */
+.python-studio-container {
+  border-radius: var(--radius-lg);
+  border: 2px solid #334155;
+  background: #0f172a;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-direction: column;
+}
+
+.python-studio-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 16px;
+  background: #1e293b;
+  border-bottom: 1px solid #334155;
+}
+
+/* Quick Snippet Insert Toolbar */
+.quick-snippet-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: #162032;
+  border-bottom: 1px solid #283548;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.snippet-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(30, 41, 59, 0.85);
+  border: 1px solid #3b4d66;
+  color: #cbd5e1;
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.snippet-chip:hover {
+  background: #2563eb;
+  border-color: #3b82f6;
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
+/* Editor with Line Numbers */
+.python-editor-wrapper {
+  display: flex;
+  position: relative;
+  min-height: 220px;
+  background: #090d16;
+}
+
+.python-line-numbers {
+  width: 42px;
+  padding: 12px 6px;
+  background: #0b111e;
+  border-right: 1px solid #1e293b;
+  color: #475569;
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 0.88rem;
+  line-height: 1.6;
+  text-align: right;
+  user-select: none;
+}
+
+.python-code-textarea {
+  flex: 1;
+  background: transparent;
+  color: #f1f5f9;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 0.92rem;
+  line-height: 1.6;
+  padding: 12px 16px;
+  border: none;
+  outline: none;
+  resize: vertical;
+  min-height: 220px;
+  white-space: pre;
+  tab-size: 4;
+}
+
+.python-code-textarea::selection {
+  background: rgba(59, 130, 246, 0.35);
+}
+
+/* Coach Codi Bar */
+.coach-codi-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 16px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border-top: 1px solid #1e293b;
+}
+
+.coach-codi-bar.status-valid {
+  background: rgba(16, 185, 129, 0.1);
+  color: #34d399;
+}
+
+.coach-codi-bar.status-warning {
+  background: rgba(245, 158, 11, 0.12);
+  color: #fbbf24;
+}
+
+.coach-codi-bar.status-error {
+  background: rgba(239, 68, 68, 0.12);
+  color: #f87171;
+}
+
+.python-studio-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 16px;
+  background: #111827;
+  border-top: 1px solid #1f2937;
+}
+
+/* ============================================================
    QUIZ
    ============================================================ */
 
