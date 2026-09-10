@@ -188,17 +188,31 @@ export async function ensureLevel4Exists(): Promise<void> {
             startPosition: { row: 0, col: 0 },
             endPosition: { row: 3, col: 4 },
             walls: [{ row: 1, col: 1 }, { row: 1, col: 2 }, { row: 2, col: 2 }],
-            collectibles: [{ row: 0, col: 3 }, { row: 2, col: 0 }],
+            collectibles: [{ row: 0, col: 3 }, { row: 2, col: 4 }],
             availableBlocks: [
               { id: 'l10-m1', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
               { id: 'l10-m2', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
               { id: 'l10-m3', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
-              { id: 'l10-tr', type: 'turn-right', label: '🟢 Turn Right', color: '#01A3A4' },
-              { id: 'l10-tl', type: 'turn-left', label: '🟠 Turn Left', color: '#FF9F43' },
-              { id: 'l10-rep', type: 'repeat', label: '🔁 Repeat 2 times', color: '#da77f2', repeatCount: 2 },
-              { id: 'l10-pk', type: 'pick-up', label: '🟡 Pick Up Coin', color: '#FECA57' },
+              { id: 'l10-m4', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+              { id: 'l10-m5', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+              { id: 'l10-m6', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+              { id: 'l10-m7', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+              { id: 'l10-m8', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+              { id: 'l10-tr1', type: 'turn-right', label: '🟢 Turn Right', color: '#01A3A4' },
+              { id: 'l10-tr2', type: 'turn-right', label: '🟢 Turn Right', color: '#01A3A4' },
+              { id: 'l10-tl1', type: 'turn-left', label: '🟠 Turn Left', color: '#FF9F43' },
+              { id: 'l10-tl2', type: 'turn-left', label: '🟠 Turn Left', color: '#FF9F43' },
+              { id: 'l10-r2-1', type: 'repeat', label: '🔁 Repeat 2 times', color: '#da77f2', repeatCount: 2 },
+              { id: 'l10-r2-2', type: 'repeat', label: '🔁 Repeat 2 times', color: '#da77f2', repeatCount: 2 },
+              { id: 'l10-r3-1', type: 'repeat', label: '🔁 Repeat 3 times', color: '#da77f2', repeatCount: 3 },
+              { id: 'l10-pk1', type: 'pick-up', label: '🟡 Pick Up Coin', color: '#FECA57' },
+              { id: 'l10-pk2', type: 'pick-up', label: '🟡 Pick Up Coin', color: '#FECA57' },
             ],
-            hints: ['Move right across row 0 to grab the first star', 'Turn down to bypass the asteroid cluster', 'Use repeat blocks for a 3-star efficiency rating!'],
+            hints: [
+              'Fly straight right across Row 0 to collect the first energy star at (0, 3).',
+              'Turn Right at (0, 4) to face South, safely bypassing the asteroid cluster.',
+              'Fly straight down Column 4 to reach Saturn at (3, 4)! Use Repeat blocks for a 3-star rating!'
+            ],
             maxBlocksStar: 6,
           }),
         ]
@@ -246,12 +260,25 @@ export async function ensureLevel4Exists(): Promise<void> {
               { id: 'l11-m2', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
               { id: 'l11-m3', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
               { id: 'l11-m4', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
-              { id: 'l11-tr', type: 'turn-right', label: '🟢 Turn Right', color: '#01A3A4' },
-              { id: 'l11-tl', type: 'turn-left', label: '🟠 Turn Left', color: '#FF9F43' },
-              { id: 'l11-pk', type: 'pick-up', label: '🟡 Pick Up Coin', color: '#FECA57' },
+              { id: 'l11-m5', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+              { id: 'l11-m6', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+              { id: 'l11-m7', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+              { id: 'l11-m8', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+              { id: 'l11-tr1', type: 'turn-right', label: '🟢 Turn Right', color: '#01A3A4' },
+              { id: 'l11-tr2', type: 'turn-right', label: '🟢 Turn Right', color: '#01A3A4' },
+              { id: 'l11-tl1', type: 'turn-left', label: '🟠 Turn Left', color: '#FF9F43' },
+              { id: 'l11-tl2', type: 'turn-left', label: '🟠 Turn Left', color: '#FF9F43' },
+              { id: 'l11-r2', type: 'repeat', label: '🔁 Repeat 2 times', color: '#da77f2', repeatCount: 2 },
+              { id: 'l11-r3', type: 'repeat', label: '🔁 Repeat 3 times', color: '#da77f2', repeatCount: 3 },
+              { id: 'l11-pk1', type: 'pick-up', label: '🟡 Pick Up Coin', color: '#FECA57' },
+              { id: 'l11-pk2', type: 'pick-up', label: '🟡 Pick Up Coin', color: '#FECA57' },
             ],
-            hints: ['The top path is blocked by castle walls', 'Head down column 0 first to grab the crystal', 'Turn right and navigate around the stone barrier'],
-            maxBlocksStar: 6,
+            hints: [
+              'The top path is blocked by castle walls. Turn Right to head South down column 0!',
+              'Collect the first crystal at (1, 0) and continue to the bottom corner (3, 0).',
+              'Turn Left to face East and head straight towards the Crown at (3, 3)!'
+            ],
+            maxBlocksStar: 7,
           }),
         ]
       );
@@ -283,7 +310,7 @@ export async function ensureLevel4Exists(): Promise<void> {
           `## Example: 2D Sweeper 🧹\n\n\`\`\`javascript\nrepeat (3 times) {      // Outer loop\n  repeat (3 times) {    // Inner loop\n    moveForward();\n  }\n  turnRight();\n}\n\`\`\`\nNested loops produce powerful results with minimal code!`,
           'drag-drop',
           JSON.stringify({
-            instructions: 'Use nested loops to sweep the enchanted forest and gather all magical mushrooms!',
+            instructions: 'Use nested loops to sweep the enchanted forest and gather all magical crystals!',
             theme: 'forest',
             characterEmoji: '🦊',
             goalEmoji: '🌳',
@@ -295,13 +322,27 @@ export async function ensureLevel4Exists(): Promise<void> {
             availableBlocks: [
               { id: 'l12-m1', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
               { id: 'l12-m2', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
-              { id: 'l12-tr', type: 'turn-right', label: '🟢 Turn Right', color: '#01A3A4' },
-              { id: 'l12-tl', type: 'turn-left', label: '🟠 Turn Left', color: '#FF9F43' },
+              { id: 'l12-m3', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+              { id: 'l12-m4', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+              { id: 'l12-m5', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+              { id: 'l12-m6', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+              { id: 'l12-m7', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+              { id: 'l12-m8', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+              { id: 'l12-tr1', type: 'turn-right', label: '🟢 Turn Right', color: '#01A3A4' },
+              { id: 'l12-tr2', type: 'turn-right', label: '🟢 Turn Right', color: '#01A3A4' },
+              { id: 'l12-tl1', type: 'turn-left', label: '🟠 Turn Left', color: '#FF9F43' },
+              { id: 'l12-tl2', type: 'turn-left', label: '🟠 Turn Left', color: '#FF9F43' },
               { id: 'l12-r2', type: 'repeat', label: '🔁 Repeat 2 times', color: '#da77f2', repeatCount: 2 },
               { id: 'l12-r3', type: 'repeat', label: '🔁 Repeat 3 times', color: '#da77f2', repeatCount: 3 },
-              { id: 'l12-pk', type: 'pick-up', label: '🟡 Pick Up Coin', color: '#FECA57' },
+              { id: 'l12-r4', type: 'repeat', label: '🔁 Repeat 4 times', color: '#da77f2', repeatCount: 4 },
+              { id: 'l12-pk1', type: 'pick-up', label: '🟡 Pick Up Coin', color: '#FECA57' },
+              { id: 'l12-pk2', type: 'pick-up', label: '🟡 Pick Up Coin', color: '#FECA57' },
+              { id: 'l12-pk3', type: 'pick-up', label: '🟡 Pick Up Coin', color: '#FECA57' },
             ],
-            hints: ['Repeat blocks allow you to glide through multiple squares', 'Collect all 3 coins on your path to the Ancient Tree'],
+            hints: [
+              'Repeat blocks allow you to glide through multiple squares with minimal code.',
+              'Collect all 3 coins on your path to the Ancient Tree at (4, 4).'
+            ],
             maxBlocksStar: 6,
           }),
         ]
@@ -349,18 +390,29 @@ export async function ensureLevel4Exists(): Promise<void> {
               { id: 'l13-m1', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
               { id: 'l13-m2', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
               { id: 'l13-m3', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
-              { id: 'l13-tr', type: 'turn-right', label: '🟢 Turn Right', color: '#01A3A4' },
-              { id: 'l13-tl', type: 'turn-left', label: '🟠 Turn Left', color: '#FF9F43' },
+              { id: 'l13-m4', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+              { id: 'l13-m5', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+              { id: 'l13-m6', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+              { id: 'l13-m7', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+              { id: 'l13-m8', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+              { id: 'l13-m9', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+              { id: 'l13-m10', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+              { id: 'l13-tr1', type: 'turn-right', label: '🟢 Turn Right', color: '#01A3A4' },
+              { id: 'l13-tr2', type: 'turn-right', label: '🟢 Turn Right', color: '#01A3A4' },
+              { id: 'l13-tl1', type: 'turn-left', label: '🟠 Turn Left', color: '#FF9F43' },
+              { id: 'l13-tl2', type: 'turn-left', label: '🟠 Turn Left', color: '#FF9F43' },
               { id: 'l13-r2', type: 'repeat', label: '🔁 Repeat 2 times', color: '#da77f2', repeatCount: 2 },
+              { id: 'l13-r3', type: 'repeat', label: '🔁 Repeat 3 times', color: '#da77f2', repeatCount: 3 },
               { id: 'l13-r4', type: 'repeat', label: '🔁 Repeat 4 times', color: '#da77f2', repeatCount: 4 },
-              { id: 'l13-pk', type: 'pick-up', label: '🟡 Pick Up Coin', color: '#FECA57' },
+              { id: 'l13-pk1', type: 'pick-up', label: '🟡 Pick Up Coin', color: '#FECA57' },
+              { id: 'l13-pk2', type: 'pick-up', label: '🟡 Pick Up Coin', color: '#FECA57' },
             ],
             hints: [
-              'Head straight right across the top row to collect the Key at (0, 4)',
-              'Once you have the Key, the locked door at (2, 2) can be opened',
-              'Use repeat 4 times for maximum speed and 3 stars!',
+              'Head straight right across the top row to collect the Key at (0, 4).',
+              'Once you have the Key, the locked gate at (2, 2) can be opened.',
+              'Pass through the gate and fly to the Citadel Core at (4, 4)!'
             ],
-            maxBlocksStar: 7,
+            maxBlocksStar: 8,
           }),
         ]
       );
@@ -399,6 +451,84 @@ export async function ensureLevel4Exists(): Promise<void> {
 
       console.log('✅ Level 4: Cosmic Citadel and all lessons & quizzes ready!');
     }
+
+    // Always ensure Level 4 lessons have generous activity configs for existing databases
+    try {
+      const l10Up = {
+        instructions: 'Define your cosmic movement spell! Guide the rocket around asteroids, collect the energy stars, and dock at Saturn!',
+        theme: 'space',
+        characterEmoji: '🚀',
+        goalEmoji: '🪐',
+        gridSize: { rows: 4, cols: 5 },
+        startPosition: { row: 0, col: 0 },
+        endPosition: { row: 3, col: 4 },
+        walls: [{ row: 1, col: 1 }, { row: 1, col: 2 }, { row: 2, col: 2 }],
+        collectibles: [{ row: 0, col: 3 }, { row: 2, col: 4 }],
+        availableBlocks: [
+          { id: 'l10-m1', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+          { id: 'l10-m2', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+          { id: 'l10-m3', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+          { id: 'l10-m4', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+          { id: 'l10-m5', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+          { id: 'l10-m6', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+          { id: 'l10-m7', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+          { id: 'l10-m8', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+          { id: 'l10-tr1', type: 'turn-right', label: '🟢 Turn Right', color: '#01A3A4' },
+          { id: 'l10-tr2', type: 'turn-right', label: '🟢 Turn Right', color: '#01A3A4' },
+          { id: 'l10-tl1', type: 'turn-left', label: '🟠 Turn Left', color: '#FF9F43' },
+          { id: 'l10-tl2', type: 'turn-left', label: '🟠 Turn Left', color: '#FF9F43' },
+          { id: 'l10-r2-1', type: 'repeat', label: '🔁 Repeat 2 times', color: '#da77f2', repeatCount: 2 },
+          { id: 'l10-r2-2', type: 'repeat', label: '🔁 Repeat 2 times', color: '#da77f2', repeatCount: 2 },
+          { id: 'l10-r3-1', type: 'repeat', label: '🔁 Repeat 3 times', color: '#da77f2', repeatCount: 3 },
+          { id: 'l10-pk1', type: 'pick-up', label: '🟡 Pick Up Coin', color: '#FECA57' },
+          { id: 'l10-pk2', type: 'pick-up', label: '🟡 Pick Up Coin', color: '#FECA57' },
+        ],
+        hints: [
+          'Fly straight right across Row 0 to collect the first energy star at (0, 3).',
+          'Turn Right at (0, 4) to face South, safely bypassing the asteroid cluster.',
+          'Fly straight down Column 4 to reach Saturn at (3, 4)! Use Repeat blocks for a 3-star rating!'
+        ],
+        maxBlocksStar: 6,
+      };
+      await query(`UPDATE lessons SET activity_data = $1 WHERE title LIKE '%Magic Functions%'`, [JSON.stringify(l10Up)]);
+
+      const l11Up = {
+        instructions: 'Be a bug detective! The old program had wall collisions. Plan the correct route through the castle corridor.',
+        theme: 'castle',
+        characterEmoji: '🧙‍♂️',
+        goalEmoji: '👑',
+        gridSize: { rows: 4, cols: 4 },
+        startPosition: { row: 0, col: 0 },
+        endPosition: { row: 3, col: 3 },
+        walls: [{ row: 0, col: 1 }, { row: 2, col: 1 }, { row: 2, col: 2 }],
+        collectibles: [{ row: 1, col: 0 }, { row: 3, col: 1 }],
+        availableBlocks: [
+          { id: 'l11-m1', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+          { id: 'l11-m2', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+          { id: 'l11-m3', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+          { id: 'l11-m4', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+          { id: 'l11-m5', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+          { id: 'l11-m6', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+          { id: 'l11-m7', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+          { id: 'l11-m8', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+          { id: 'l11-tr1', type: 'turn-right', label: '🟢 Turn Right', color: '#01A3A4' },
+          { id: 'l11-tr2', type: 'turn-right', label: '🟢 Turn Right', color: '#01A3A4' },
+          { id: 'l11-tl1', type: 'turn-left', label: '🟠 Turn Left', color: '#FF9F43' },
+          { id: 'l11-tl2', type: 'turn-left', label: '🟠 Turn Left', color: '#FF9F43' },
+          { id: 'l11-r2', type: 'repeat', label: '🔁 Repeat 2 times', color: '#da77f2', repeatCount: 2 },
+          { id: 'l11-r3', type: 'repeat', label: '🔁 Repeat 3 times', color: '#da77f2', repeatCount: 3 },
+          { id: 'l11-pk1', type: 'pick-up', label: '🟡 Pick Up Coin', color: '#FECA57' },
+          { id: 'l11-pk2', type: 'pick-up', label: '🟡 Pick Up Coin', color: '#FECA57' },
+        ],
+        hints: [
+          'The top path is blocked by castle walls. Turn Right to head South down column 0!',
+          'Collect the first crystal at (1, 0) and continue to the bottom corner (3, 0).',
+          'Turn Left to face East and head straight towards the Crown at (3, 3)!'
+        ],
+        maxBlocksStar: 7,
+      };
+      await query(`UPDATE lessons SET activity_data = $1 WHERE title LIKE '%Bug Detective%'`, [JSON.stringify(l11Up)]);
+    } catch (_) {}
   } catch (err) {
     console.error('Failed to ensure Level 4 exists:', err);
   }

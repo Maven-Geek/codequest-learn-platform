@@ -205,8 +205,8 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
         curKeys.add(`${curRow}-${curCol}`);
       }
 
-      // Auto-collect collectible if no explicit pick-up block
-      if (!hasPickUpBlock && collectibles.some(c => c.row === curRow && c.col === curCol)) {
+      // Collectible auto-collected if stepped on (pick-up block also explicitly collects)
+      if (collectibles.some(c => c.row === curRow && c.col === curCol)) {
         curCollected.add(`${curRow}-${curCol}`);
       }
 
@@ -246,7 +246,7 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
 
           if (atDoor && curUnlockedDoors.has(`${curRow}-${curCol}`)) soundCue = 'door';
           else if (atKey) soundCue = 'key';
-          else if (atCoin && !hasPickUpBlock) soundCue = 'coin';
+          else if (atCoin) soundCue = 'coin';
 
           states.push({
             row: curRow,
@@ -401,7 +401,7 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
     }
   };
 
-  const computeStars = (currentDropZone: Block[], totalBumps: number): StarBreakdown => {
+  const computeStars = (currentDropZone: Block[], totalBumps: number, lastStep?: RobotState): StarBreakdown => {
     const totalCoins = activity.collectibles?.length || 0;
     const totalKeys = activity.keys?.length || 0;
     const totalTreasures = totalCoins + totalKeys;
@@ -411,7 +411,7 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
     let star2Label = '';
 
     if (totalTreasures > 0) {
-      const collectedTreasures = collectedItems.size + collectedKeys.size;
+      const collectedTreasures = lastStep ? (lastStep.collected.length + lastStep.keys.length) : (collectedItems.size + collectedKeys.size);
       star2 = collectedTreasures >= totalTreasures;
       star2Label = `Collected all treasures (${collectedTreasures}/${totalTreasures})`;
     } else {
@@ -477,18 +477,18 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
     const collectedAll = (totalCoins === 0 || lastStep.collected.length >= totalCoins) &&
       (totalKeys === 0 || lastStep.keys.length >= totalKeys);
 
+    const keysSatisfied = totalKeys === 0 || lastStep.keys.length >= totalKeys;
     const isFreePlay = !activity.correctSequence || activity.correctSequence.length === 0;
     const isCorrect = isSequenceCorrect(currentDropZone);
 
-    const successCondition = isFreePlay
-      ? (reachedGoal && (totalCoins === 0 || lastStep.collected.length >= 1)) || isCorrect
-      : (reachedGoal && collectedAll) || isCorrect;
+    // Goal reached with all keys collected (or correct custom sequence) completes the level!
+    const successCondition = (reachedGoal && keysSatisfied) || isCorrect;
 
     if (successCondition) {
       setResult('success');
       sfx.success();
 
-      const stars = computeStars(currentDropZone, bumpCount);
+      const stars = computeStars(currentDropZone, bumpCount, lastStep);
       setStarResult(stars);
 
       // Procedural star fanfare pings
