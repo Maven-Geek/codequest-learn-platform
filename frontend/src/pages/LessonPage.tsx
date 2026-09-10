@@ -180,8 +180,6 @@ export default function LessonPage() {
                 { id: 'l10-r2-1', type: 'repeat', label: '🔁 Repeat 2 times', color: '#da77f2', repeatCount: 2 },
                 { id: 'l10-r2-2', type: 'repeat', label: '🔁 Repeat 2 times', color: '#da77f2', repeatCount: 2 },
                 { id: 'l10-r3-1', type: 'repeat', label: '🔁 Repeat 3 times', color: '#da77f2', repeatCount: 3 },
-                { id: 'l10-pk1', type: 'pick-up', label: '🟡 Pick Up Coin', color: '#FECA57' },
-                { id: 'l10-pk2', type: 'pick-up', label: '🟡 Pick Up Coin', color: '#FECA57' },
               ],
               hints: [
                 'Fly straight right across Row 0 to collect the first energy star at (0, 3).',
@@ -230,8 +228,6 @@ export default function LessonPage() {
                 { id: 'l11-tl2', type: 'turn-left', label: '🟠 Turn Left', color: '#FF9F43' },
                 { id: 'l11-r2', type: 'repeat', label: '🔁 Repeat 2 times', color: '#da77f2', repeatCount: 2 },
                 { id: 'l11-r3', type: 'repeat', label: '🔁 Repeat 3 times', color: '#da77f2', repeatCount: 3 },
-                { id: 'l11-pk1', type: 'pick-up', label: '🟡 Pick Up Coin', color: '#FECA57' },
-                { id: 'l11-pk2', type: 'pick-up', label: '🟡 Pick Up Coin', color: '#FECA57' },
               ],
               hints: [
                 'The top path is blocked by castle walls. Turn Right to head South down column 0!',
@@ -298,14 +294,14 @@ export default function LessonPage() {
         }
       }
 
-      // Lesson 13 / The Grand Master Quest (Citadel Gate Theme)
+      // Lesson 13 / 14: The Grand Master Quest (Citadel Gate Theme)
       if (
         lessonData &&
         (lessonData.title?.includes('Grand Master') ||
          lessonData.title?.includes('Citadel') ||
-         (lessonData.id === 13 && !lessonData.title?.includes('Nested')))
+         ((lessonData.id === 13 || lessonData.id === 14) && !lessonData.title?.includes('Nested')))
       ) {
-        if (!lessonData.activity_data?.availableBlocks || lessonData.activity_data.availableBlocks.filter((b: any) => b.type === 'repeat').length < 7) {
+        if (!lessonData.activity_data?.availableBlocks || lessonData.activity_data.availableBlocks.filter((b: any) => b.type === 'repeat').length < 7 || lessonData.activity_data.availableBlocks.filter((b: any) => b.type === 'turn-right').length < 3) {
           lessonData = {
             ...lessonData,
             activity_data: {
@@ -332,10 +328,16 @@ export default function LessonPage() {
                 { id: 'l13-m8', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
                 { id: 'l13-m9', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
                 { id: 'l13-m10', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+                { id: 'l13-m11', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+                { id: 'l13-m12', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
                 { id: 'l13-tr1', type: 'turn-right', label: '🟢 Turn Right', color: '#01A3A4' },
                 { id: 'l13-tr2', type: 'turn-right', label: '🟢 Turn Right', color: '#01A3A4' },
+                { id: 'l13-tr3', type: 'turn-right', label: '🟢 Turn Right', color: '#01A3A4' },
+                { id: 'l13-tr4', type: 'turn-right', label: '🟢 Turn Right', color: '#01A3A4' },
                 { id: 'l13-tl1', type: 'turn-left', label: '🟠 Turn Left', color: '#FF9F43' },
                 { id: 'l13-tl2', type: 'turn-left', label: '🟠 Turn Left', color: '#FF9F43' },
+                { id: 'l13-tl3', type: 'turn-left', label: '🟠 Turn Left', color: '#FF9F43' },
+                { id: 'l13-tl4', type: 'turn-left', label: '🟠 Turn Left', color: '#FF9F43' },
                 { id: 'l13-r2-1', type: 'repeat', label: '🔁 Repeat 2 times', color: '#da77f2', repeatCount: 2 },
                 { id: 'l13-r2-2', type: 'repeat', label: '🔁 Repeat 2 times', color: '#da77f2', repeatCount: 2 },
                 { id: 'l13-r2-3', type: 'repeat', label: '🔁 Repeat 2 times', color: '#da77f2', repeatCount: 2 },
@@ -350,7 +352,7 @@ export default function LessonPage() {
                 'Once you have the Key, the locked gate at (2, 2) can be opened.',
                 'Pass through the gate and fly to the Citadel Core at (4, 4)!'
               ],
-              maxBlocksStar: 8,
+              maxBlocksStar: 18,
             }
           };
         }

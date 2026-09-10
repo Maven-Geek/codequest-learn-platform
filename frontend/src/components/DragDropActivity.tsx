@@ -75,6 +75,10 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
   const goalEmoji = activity.goalEmoji || defaultAvatars[theme]?.goal || '🏆';
   const wallEmoji = defaultAvatars[theme]?.wall || '🧱';
 
+  const hasPickUpBlock = activity.availableBlocks.some(b => b.type === 'pick-up');
+  const isFreePlayActivity = (activity as any).gameType === 'free-play' || !activity.correctSequence || activity.correctSequence.length === 0;
+  const requiresExplicitPickUp = hasPickUpBlock && !isFreePlayActivity;
+
   const [palette, setPalette] = useState<Block[]>([...activity.availableBlocks]);
   const [dropZone, setDropZone] = useState<Block[]>([]);
   const [dragOver, setDragOver] = useState(false);
@@ -212,8 +216,8 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
         curKeys.add(`${curRow}-${curCol}`);
       }
 
-      // Collectible auto-collected if stepped on (pick-up block also explicitly collects)
-      if (collectibles.some(c => c.row === curRow && c.col === curCol)) {
+      // Collectible auto-collected if stepped on, UNLESS the lesson requires explicit pick-up blocks (e.g. Lesson 7: Variables)
+      if (!requiresExplicitPickUp && collectibles.some(c => c.row === curRow && c.col === curCol)) {
         curCollected.add(`${curRow}-${curCol}`);
       }
 
@@ -252,7 +256,7 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
 
           if (atDoor && curUnlockedDoors.has(`${curRow}-${curCol}`)) soundCue = 'door';
           else if (atKey) soundCue = 'key';
-          else if (atCoin) soundCue = 'coin';
+          else if (atCoin && !requiresExplicitPickUp) soundCue = 'coin';
 
           states.push({
             row: curRow,
@@ -474,11 +478,12 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
       (totalKeys === 0 || lastStep.keys.length >= totalKeys);
 
     const keysSatisfied = totalKeys === 0 || lastStep.keys.length >= totalKeys;
+    const coinsSatisfied = !requiresExplicitPickUp || totalCoins === 0 || lastStep.collected.length >= totalCoins;
     const isFreePlay = !activity.correctSequence || activity.correctSequence.length === 0;
     const isCorrect = isSequenceCorrect(currentDropZone);
 
-    // Goal reached with all keys collected (or correct custom sequence) completes the level!
-    const successCondition = (reachedGoal && keysSatisfied) || isCorrect;
+    // Goal reached with all keys & required coins collected (or correct custom sequence) completes the level!
+    const successCondition = (reachedGoal && keysSatisfied && coinsSatisfied) || isCorrect;
 
     if (successCondition) {
       setResult('success');
