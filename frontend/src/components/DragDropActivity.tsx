@@ -438,35 +438,151 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
     };
   };
 
+  // Determine how many blocks are required before the task is considered complete
+  const expectedBlockCount = useMemo(() => {
+    // 1. If an explicit correctSequence is defined, exactly that many blocks must be placed
+    if (activity.correctSequence && activity.correctSequence.length > 0) {
+      return activity.correctSequence.length;
+    }
+    // 2. If objectives specify a block count requirement (e.g., "Use at least 5 blocks")
+    if (activity.objectives && activity.objectives.length > 0) {
+      for (const obj of activity.objectives) {
+        const match = obj.match(/\b(?:use\s+(?:at\s+least\s+)?)(\d+)\s+block/i);
+        if (match) {
+          return parseInt(match[1], 10);
+        }
+      }
+    }
+    // 3. If a fixed set of available blocks is provided (e.g. 5 blocks provided specifically to be sequenced)
+    if (activity.availableBlocks && activity.availableBlocks.length > 0) {
+      if (!activity.endPosition || activity.availableBlocks.length <= 8) {
+        return activity.availableBlocks.length;
+      }
+    }
+    return 0;
+  }, [activity]);
+
   const isSequenceCorrect = (currentDropZone: Block[]) => {
-    if (!activity.correctSequence || activity.correctSequence.length === 0) {
-      const usedEnoughBlocks = currentDropZone.length >= 4;
-      const visitedEnoughSquares = visitedCells.size >= 3;
-      const collectedCoins = (activity.collectibles && activity.collectibles.length > 0)
-        ? collectedItems.size >= 1
-        : true;
-      return usedEnoughBlocks && (visitedEnoughSquares || collectedCoins);
+    // 1. Explicit correct sequence: must have at least that many blocks and match
+    if (activity.correctSequence && activity.correctSequence.length > 0) {
+      if (currentDropZone.length < activity.correctSequence.length) {
+        return false;
+      }
+
+      // If availableBlocks count matches correctSequence, all palette blocks must be placed
+      if (activity.availableBlocks && activity.availableBlocks.length === activity.correctSequence.length) {
+        if (currentDropZone.length !== activity.availableBlocks.length) {
+          return false;
+        }
+      }
+
+      // Direct ID match
+      const userSequence = currentDropZone.map(b => b.id);
+      if (JSON.stringify(userSequence) === JSON.stringify(activity.correctSequence)) {
+        return true;
+      }
+
+      const userBlocks = currentDropZone.map(b => {
+        const { id, ...rest } = b as any;
+        return rest;
+      });
+
+      const correctBlocks = activity.correctSequence.map(id => {
+        const block = activity.availableBlocks.find(b => b.id === id);
+        if (block) {
+          const { id: _, ...rest } = block as any;
+          return rest;
+        }
+        return { type: id };
+      });
+
+      return JSON.stringify(userBlocks) === JSON.stringify(correctBlocks);
     }
 
-    const userBlocks = currentDropZone.map(b => {
-      const { id, ...rest } = b as any;
-      return rest;
-    });
+    // 2. If NO correctSequence is defined:
+    const totalAvailable = activity.availableBlocks?.length || 0;
 
-    const correctBlocks = activity.correctSequence.map(id => {
-      const block = activity.availableBlocks.find(b => b.id === id);
-      if (block) {
-        const { id: _, ...rest } = block as any;
-        return rest;
+    // If there is a tailored set of blocks (<= 8 blocks), ALL must be dropped
+    if (totalAvailable > 0 && totalAvailable <= 8) {
+      if (currentDropZone.length < totalAvailable) {
+        return false;
       }
-      return { type: id };
-    });
+    }
 
-    return JSON.stringify(userBlocks) === JSON.stringify(correctBlocks);
+    // If there is an objective specifying a minimum block count
+    if (activity.objectives && activity.objectives.length > 0) {
+      for (const obj of activity.objectives) {
+        const match = obj.match(/\b(?:use\s+(?:at\s+least\s+)?)(\d+)\s+block/i);
+        if (match) {
+          const minBlocks = parseInt(match[1], 10);
+          if (currentDropZone.length < minBlocks) {
+            return false;
+          }
+        }
+      }
+    }
+
+    // If there is an endPosition (grid goal), sequence correctness alone without reaching the goal must NOT pass
+    if (activity.endPosition) {
+      return false;
+    }
+
+    // If there is NO grid (pure sequencing like ordering routine steps): all available blocks must be used
+    if (!activity.gridSize && !activity.endPosition) {
+      return totalAvailable > 0 && currentDropZone.length >= totalAvailable;
+    }
+
+    return false;
   };
 
-  const checkAutoGoalReached = (lastStep: RobotState, currentDropZone: Block[]) => {
+  const checkAutoGoalReached = (lastStep: RobotState, currentDropZone: Block[], currentPalette: Block[]) => {
     if (result === 'success') return;
+
+    const totalAvailable = activity.availableBlocks?.length || 0;
+    const hasExplicitSequence = Boolean(activity.correctSequence && activity.correctSequence.length > 0);
+    const requiredSeqLength = hasExplicitSequence ? activity.correctSequence.length : 0;
+
+    // RULE 1: If expectedBlockCount is set (e.g. 5 blocks to drop), do NOT grade until all blocks are placed!
+    if (expectedBlockCount > 0 && currentDropZone.length < expectedBlockCount) {
+      return;
+    }
+
+    // RULE 2: If the activity has a defined palette of available blocks (<= 8 blocks), wait until all blocks are dropped
+    if (totalAvailable > 0 && totalAvailable <= 8 && currentPalette.length > 0 && currentDropZone.length < totalAvailable) {
+      return;
+    }
+
+    // RULE 3: Check objectives (e.g. minimum block count, keys, doors, coins)
+    let objectivesSatisfied = true;
+    if (activity.objectives && activity.objectives.length > 0) {
+      for (const obj of activity.objectives) {
+        const lower = obj.toLowerCase();
+        if (lower.includes('key')) {
+          const target = activity.keys?.length || 1;
+          if (lastStep.keys.length < target) objectivesSatisfied = false;
+        } else if (lower.includes('door')) {
+          const target = activity.doors?.length || 1;
+          if (lastStep.unlockedDoors.length < target) objectivesSatisfied = false;
+        } else if (lower.includes('coin')) {
+          const match = lower.match(/\b(\d+)\s+coin/);
+          const target = match ? parseInt(match[1]) : 1;
+          if (lastStep.collected.length < target) objectivesSatisfied = false;
+        } else if (lower.includes('block')) {
+          const match = lower.match(/\b(\d+)\s+block/);
+          const target = match ? parseInt(match[1]) : 4;
+          if (currentDropZone.length < target) objectivesSatisfied = false;
+        } else if (lower.includes('square')) {
+          const match = lower.match(/\b(\d+)\+?\s*(?:different\s*)?square/);
+          const target = match ? parseInt(match[1]) : 3;
+          if (lastStep.visited.length < target) objectivesSatisfied = false;
+        } else if (lower.includes('trophy') || lower.includes('goal')) {
+          const reachedTrophy = activity.endPosition
+            ? lastStep.row === activity.endPosition.row && lastStep.col === activity.endPosition.col
+            : false;
+          if (!reachedTrophy && lastStep.visited.length < 5) objectivesSatisfied = false;
+        }
+      }
+    }
 
     const reachedGoal = activity.endPosition
       ? lastStep.row === activity.endPosition.row && lastStep.col === activity.endPosition.col
@@ -474,16 +590,18 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
 
     const totalCoins = activity.collectibles?.length || 0;
     const totalKeys = activity.keys?.length || 0;
-    const collectedAll = (totalCoins === 0 || lastStep.collected.length >= totalCoins) &&
-      (totalKeys === 0 || lastStep.keys.length >= totalKeys);
 
     const keysSatisfied = totalKeys === 0 || lastStep.keys.length >= totalKeys;
     const coinsSatisfied = !requiresExplicitPickUp || totalCoins === 0 || lastStep.collected.length >= totalCoins;
-    const isFreePlay = !activity.correctSequence || activity.correctSequence.length === 0;
     const isCorrect = isSequenceCorrect(currentDropZone);
 
-    // Goal reached with all keys & required coins collected (or correct custom sequence) completes the level!
-    const successCondition = (reachedGoal && keysSatisfied && coinsSatisfied) || isCorrect;
+    // Goal reached with all keys & required coins collected (or correct custom sequence) completes the level
+    let successCondition = false;
+    if (activity.endPosition) {
+      successCondition = (reachedGoal && keysSatisfied && coinsSatisfied && objectivesSatisfied) || isCorrect;
+    } else {
+      successCondition = isCorrect;
+    }
 
     if (successCondition) {
       setResult('success');
@@ -498,6 +616,16 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
       }
 
       onComplete();
+    } else if (
+      (expectedBlockCount > 0 && currentDropZone.length >= expectedBlockCount) ||
+      (totalAvailable > 0 && totalAvailable <= 8 && currentPalette.length === 0)
+    ) {
+      // All blocks placed, but solution hasn't succeeded yet
+      setFeedbackMessage(
+        activity.endPosition
+          ? "All blocks placed, but the goal was not reached yet! Review your steps or turns."
+          : "All blocks placed! Check the order of your steps and try rearranging them."
+      );
     }
   };
 
@@ -542,7 +670,7 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
       const endTimer = setTimeout(() => {
         setIsRunning(false);
         const lastStep = newStates[newStates.length - 1];
-        checkAutoGoalReached(lastStep, newDropZone);
+        checkAutoGoalReached(lastStep, newDropZone, newPalette);
       }, totalTime + 60);
       animationTimeouts.current.push(endTimer);
     } else {
@@ -554,7 +682,7 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
       setCollectedKeys(new Set(lastStep.keys));
       setUnlockedDoors(new Set(lastStep.unlockedDoors));
       setIsRunning(false);
-      checkAutoGoalReached(lastStep, newDropZone);
+      checkAutoGoalReached(lastStep, newDropZone, newPalette);
     }
   };
 
@@ -768,7 +896,14 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
     const endTimer = setTimeout(() => {
       setIsRunning(false);
       const lastStep = allStates[allStates.length - 1];
-      checkAutoGoalReached(lastStep, dropZone);
+      checkAutoGoalReached(lastStep, dropZone, palette);
+
+      if (expectedBlockCount > 0 && dropZone.length < expectedBlockCount) {
+        setFeedbackMessage(
+          `You placed ${dropZone.length} of ${expectedBlockCount} blocks. Drop all ${expectedBlockCount} blocks to complete the task!`
+        );
+        return;
+      }
 
       const reachedGoal = activity.endPosition
         ? lastStep.row === activity.endPosition.row && lastStep.col === activity.endPosition.col
@@ -1122,7 +1257,24 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
 
       {/* Drop zone */}
       <div className="mb-lg">
-        <label className="form-label">🎯 Your Program (robot moves live as you drop!)</label>
+        <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span>🎯 Your Program (robot moves live as you drop!)</span>
+          {expectedBlockCount > 0 && (
+            <span
+              className={`badge ${dropZone.length >= expectedBlockCount ? 'badge-success' : 'badge-primary'}`}
+              style={{
+                fontSize: '0.85rem',
+                fontWeight: 700,
+                background: dropZone.length >= expectedBlockCount ? 'var(--color-accent-green)' : 'var(--color-primary)',
+                color: '#ffffff',
+                padding: '3px 10px',
+                borderRadius: 'var(--radius-full)',
+              }}
+            >
+              {dropZone.length} / {expectedBlockCount} blocks placed {dropZone.length >= expectedBlockCount ? '✓' : ''}
+            </span>
+          )}
+        </label>
         <div
           className={`drop-zone ${dragOver ? 'drag-over' : ''} ${result === 'success' ? 'correct' : result === 'error' ? 'incorrect' : ''
             }`}
