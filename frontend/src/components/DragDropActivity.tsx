@@ -139,6 +139,13 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
     return map[type] || 'block-action';
   };
 
+  // Helper to reliably read/parse repeat count from block property or label
+  const getBlockRepeatCount = (b: Block): number => {
+    if ((b as any).repeatCount) return (b as any).repeatCount;
+    const match = b.label?.match(/(\d+)\s*(?:times|x)?/i);
+    return match ? parseInt(match[1], 10) : 2;
+  };
+
   // Pure simulation engine: calculates robot path with keys, locked doors, and collectibles
   const computeSimulationSteps = (blocks: Block[]): RobotState[] => {
     const start = activity.startPosition || { row: 0, col: 0 };
@@ -339,50 +346,38 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
       return true;
     };
 
-    let i = 0;
-    while (i < blocks.length) {
-      const block = blocks[i];
+    let stopped = false;
+    const runBlockSequence = (seq: Block[]) => {
+      let idx = 0;
+      while (idx < seq.length && !stopped) {
+        const b = seq[idx];
+        if (b.type === 'repeat') {
+          const count = getBlockRepeatCount(b);
+          let span = Math.max(1, (b as any).repeatSpan || 1);
 
-      if (block.type === 'repeat') {
-        const repeatCount = (block as any).repeatCount || 2;
-
-        // Check for immediate nested repeat block (Repeat A inside/following Repeat B)
-        if (i + 1 < blocks.length && blocks[i + 1].type === 'repeat') {
-          const innerRepeat = blocks[i + 1];
-          const innerCount = (innerRepeat as any).repeatCount || 2;
-          const innerSpan = Math.max(1, (innerRepeat as any).repeatSpan || 1);
-          const targetBlocks = blocks.slice(i + 2, i + 2 + innerSpan);
-
-          outerLoop: for (let o = 0; o < repeatCount; o++) {
-            for (let inn = 0; inn < innerCount; inn++) {
-              for (const tb of targetBlocks) {
-                const ok = executeAction(tb);
-                if (!ok) break outerLoop;
-              }
-            }
+          // If immediately followed by another repeat block and repeatSpan is default 1, auto-include inner repeat + its target
+          if (span === 1 && idx + 1 < seq.length && seq[idx + 1].type === 'repeat') {
+            const innerSpan = Math.max(1, (seq[idx + 1] as any).repeatSpan || 1);
+            span = 1 + innerSpan;
           }
-          i += 2 + targetBlocks.length;
-          continue;
-        }
 
-        // Single repeat block with configurable repeatSpan (default 1)
-        const span = Math.max(1, (block as any).repeatSpan || 1);
-        const targetBlocks = blocks.slice(i + 1, i + 1 + span);
-
-        repeatLoop: for (let r = 0; r < repeatCount; r++) {
-          for (const tb of targetBlocks) {
-            const ok = executeAction(tb);
-            if (!ok) break repeatLoop;
+          const innerBlocks = seq.slice(idx + 1, idx + 1 + span);
+          for (let r = 0; r < count && !stopped; r++) {
+            runBlockSequence(innerBlocks);
           }
+          idx += 1 + span;
+        } else {
+          const ok = executeAction(b);
+          if (!ok) {
+            stopped = true;
+            return;
+          }
+          idx++;
         }
-        i += 1 + targetBlocks.length;
-        continue;
       }
+    };
 
-      executeAction(block);
-      i++;
-    }
-
+    runBlockSequence(blocks);
     return states;
   };
 
@@ -562,6 +557,49 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
     draggedItem.current = { block, source, index };
   };
 
+  const moveBlockInDropZone = (fromIndex: number, toIndex: number) => {
+    if (
+      fromIndex === toIndex ||
+      fromIndex < 0 ||
+      toIndex < 0 ||
+      fromIndex >= dropZone.length ||
+      toIndex >= dropZone.length
+    ) {
+      return;
+    }
+    clearPendingAnimations();
+    setIsRunning(false);
+    setResult(null);
+    setStarResult(null);
+    setFeedbackMessage(null);
+    const newDropZone = [...dropZone];
+    const [moved] = newDropZone.splice(fromIndex, 1);
+    newDropZone.splice(toIndex, 0, moved);
+    applyNewDropZone(newDropZone, palette);
+  };
+
+  const handleDropOnBlock = (targetIndex: number) => {
+    if (!draggedItem.current) return;
+    const { block, source, index: sourceIndex } = draggedItem.current;
+
+    if (source === 'dropzone') {
+      if (sourceIndex !== targetIndex) {
+        moveBlockInDropZone(sourceIndex, targetIndex);
+      }
+    } else if (source === 'palette') {
+      const newPalette = palette.filter((_, i) => i !== sourceIndex);
+      const blockToAdd = {
+        ...block,
+        repeatCount: block.type === 'repeat' ? getBlockRepeatCount(block) : undefined,
+        repeatSpan: (block as any).repeatSpan || 1,
+      };
+      const newDropZone = [...dropZone];
+      newDropZone.splice(targetIndex, 0, blockToAdd);
+      applyNewDropZone(newDropZone, newPalette);
+    }
+    draggedItem.current = null;
+  };
+
   const handleDropOnZone = (e: React.DragEvent) => {
     e.preventDefault();
     setDragOver(false);
@@ -570,8 +608,18 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
     const { block, source, index } = draggedItem.current;
     if (source === 'palette') {
       const newPalette = palette.filter((_, i) => i !== index);
-      const newDropZone = [...dropZone, block];
+      const blockToAdd = {
+        ...block,
+        repeatCount: block.type === 'repeat' ? getBlockRepeatCount(block) : undefined,
+        repeatSpan: (block as any).repeatSpan || 1,
+      };
+      const newDropZone = [...dropZone, blockToAdd];
       applyNewDropZone(newDropZone, newPalette);
+    } else if (source === 'dropzone') {
+      // If dropped onto general dropzone background, move to the end
+      if (index !== dropZone.length - 1) {
+        moveBlockInDropZone(index, dropZone.length - 1);
+      }
     }
     draggedItem.current = null;
   };
@@ -596,7 +644,12 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
     setStarResult(null);
     setFeedbackMessage(null);
     const newPalette = palette.filter((_, i) => i !== index);
-    const newDropZone = [...dropZone, { ...block, repeatSpan: (block as any).repeatSpan || 1 }];
+    const blockToAdd = {
+      ...block,
+      repeatCount: block.type === 'repeat' ? getBlockRepeatCount(block) : undefined,
+      repeatSpan: (block as any).repeatSpan || 1,
+    };
+    const newDropZone = [...dropZone, blockToAdd];
     applyNewDropZone(newDropZone, newPalette);
   };
 
@@ -622,6 +675,32 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
     const newDropZone = [...dropZone];
     newDropZone[index] = { ...newDropZone[index], repeatSpan: span } as any;
     applyNewDropZone(newDropZone, palette);
+  };
+
+  const updateRepeatCount = (index: number, count: number) => {
+    clearPendingAnimations();
+    setIsRunning(false);
+    setResult(null);
+    setStarResult(null);
+    setFeedbackMessage(null);
+    const newDropZone = [...dropZone];
+    const b = newDropZone[index];
+    newDropZone[index] = {
+      ...b,
+      repeatCount: count,
+      label: `🔁 Repeat ${count} times`,
+    } as any;
+    applyNewDropZone(newDropZone, palette);
+  };
+
+  const updatePaletteRepeatCount = (index: number, count: number) => {
+    const newPalette = [...palette];
+    newPalette[index] = {
+      ...newPalette[index],
+      repeatCount: count,
+      label: `🔁 Repeat ${count} times`,
+    } as any;
+    setPalette(newPalette);
   };
 
   const reset = () => {
@@ -994,10 +1073,43 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
               draggable
               onDragStart={() => handleDragStart(block, 'palette', i)}
               onClick={() => addBlock(block, i)}
-              style={{ cursor: 'pointer' }}
+              style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
               title="Click or drag into your program"
             >
-              {block.label}
+              <span>{block.type === 'repeat' ? '🔁 Repeat' : block.label}</span>
+              {block.type === 'repeat' && (
+                <span
+                  onClick={(e) => e.stopPropagation()}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}
+                >
+                  <select
+                    value={getBlockRepeatCount(block)}
+                    onChange={(e) => {
+                      e.stopPropagation();
+                      updatePaletteRepeatCount(i, parseInt(e.target.value));
+                    }}
+                    style={{
+                      background: 'rgba(0, 0, 0, 0.35)',
+                      color: '#ffffff',
+                      border: '1px solid rgba(255, 255, 255, 0.4)',
+                      borderRadius: '3px',
+                      padding: '1px 4px',
+                      fontSize: '0.8rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                    }}
+                    title="Set number of times to repeat"
+                  >
+                    {[2, 3, 4, 5, 6, 7, 8].map((num) => (
+                      <option key={num} value={num} style={{ background: '#222f3e', color: '#fff' }}>
+                        {num}x
+                      </option>
+                    ))}
+                  </select>
+                  <span style={{ fontSize: '0.8rem', opacity: 0.9 }}>times</span>
+                </span>
+              )}
             </div>
           ))}
         </div>
@@ -1042,10 +1154,10 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
             while (k < dropZone.length) {
               const b = dropZone[k];
               if (b.type === 'repeat') {
-                const count1 = (b as any).repeatCount || 2;
+                const count1 = getBlockRepeatCount(b);
                 if (k + 1 < dropZone.length && dropZone[k + 1].type === 'repeat') {
                   const inner = dropZone[k + 1];
-                  const count2 = (inner as any).repeatCount || 2;
+                  const count2 = getBlockRepeatCount(inner);
                   const span = Math.max(1, (inner as any).repeatSpan || 1);
                   loopInfo[k] = { isNestedOuter: true, totalNestedCount: count1 * count2 };
                   loopInfo[k + 1] = { isNestedInner: true, totalNestedCount: count1 * count2 };
@@ -1078,6 +1190,15 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
                   className={`code-block ${getBlockClass(block.type)}`}
                   draggable
                   onDragStart={() => handleDragStart(block, 'dropzone', i)}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleDropOnBlock(i);
+                  }}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -1087,7 +1208,9 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
                     borderLeft: isInsideLoop ? '4px solid #da77f2' : undefined,
                     boxShadow: isNestedOuter || isNestedInner ? '0 0 10px rgba(218, 119, 242, 0.4)' : undefined,
                     position: 'relative',
+                    cursor: 'grab',
                   }}
+                  title="Drag to reorder anywhere in your program!"
                 >
                   <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
                     <span style={{ marginRight: '2px', opacity: 0.7, fontWeight: 700 }}>{i + 1}.</span>
@@ -1096,7 +1219,39 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
                         ↳ in loop
                       </span>
                     )}
-                    <span>{block.label}</span>
+                    {block.type === 'repeat' ? (
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                        <span>🔁 Repeat</span>
+                        <select
+                          value={getBlockRepeatCount(block)}
+                          onChange={(e) => {
+                            e.stopPropagation();
+                            updateRepeatCount(i, parseInt(e.target.value));
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                          onMouseDown={(e) => e.stopPropagation()}
+                          style={{
+                            background: 'rgba(0, 0, 0, 0.35)',
+                            color: '#ffffff',
+                            border: '1px solid rgba(255, 255, 255, 0.45)',
+                            borderRadius: '4px',
+                            padding: '2px 6px',
+                            fontSize: '0.82rem',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                          }}
+                          title="Set how many times this loop runs"
+                        >
+                          {[2, 3, 4, 5, 6, 7, 8].map((num) => (
+                            <option key={num} value={num} style={{ background: '#222f3e', color: '#fff' }}>
+                              {num} times
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    ) : (
+                      <span>{block.label}</span>
+                    )}
 
                     {/* Outer / Inner Loop Badges */}
                     {isNestedOuter && (
@@ -1117,7 +1272,7 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
                         onClick={(e) => e.stopPropagation()}
                         onMouseDown={(e) => e.stopPropagation()}
                       >
-                        <span style={{ opacity: 0.85 }}>Repeats:</span>
+                        <span style={{ opacity: 0.85 }}>affecting:</span>
                         <select
                           value={(block as any).repeatSpan || 1}
                           onChange={(e) => {
@@ -1144,39 +1299,104 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
                     )}
                   </div>
 
-                  {/* Cancel Button */}
-                  <button
-                    type="button"
-                    onMouseDown={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                    }}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      removeBlock(i);
-                    }}
-                    style={{
-                      background: 'rgba(0, 0, 0, 0.3)',
-                      border: 'none',
-                      color: '#ffffff',
-                      cursor: 'pointer',
-                      fontSize: '0.9rem',
-                      fontWeight: 700,
-                      padding: '3px 8px',
-                      borderRadius: 'var(--radius-sm)',
-                      marginLeft: '8px',
-                      lineHeight: 1,
-                      zIndex: 10,
-                      transition: 'background 0.15s',
-                    }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255, 71, 87, 0.7)')}
-                    onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(0, 0, 0, 0.3)')}
-                    title="Remove block and return to Available Blocks"
-                    aria-label={`Remove block ${block.label}`}
-                  >
-                    ✕
-                  </button>
+                  {/* Actions: Reorder Buttons + Cancel Button */}
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', marginLeft: '6px' }}>
+                    <button
+                      type="button"
+                      disabled={i === 0}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                      }}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        moveBlockInDropZone(i, i - 1);
+                      }}
+                      title="Move block up in sequence"
+                      style={{
+                        background: 'rgba(0, 0, 0, 0.25)',
+                        border: '1px solid rgba(255, 255, 255, 0.25)',
+                        color: '#ffffff',
+                        cursor: i === 0 ? 'not-allowed' : 'pointer',
+                        opacity: i === 0 ? 0.3 : 0.9,
+                        borderRadius: '3px',
+                        width: '20px',
+                        height: '20px',
+                        padding: 0,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '0.65rem',
+                        fontWeight: 700,
+                      }}
+                    >
+                      ▲
+                    </button>
+                    <button
+                      type="button"
+                      disabled={i === dropZone.length - 1}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                      }}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        moveBlockInDropZone(i, i + 1);
+                      }}
+                      title="Move block down in sequence"
+                      style={{
+                        background: 'rgba(0, 0, 0, 0.25)',
+                        border: '1px solid rgba(255, 255, 255, 0.25)',
+                        color: '#ffffff',
+                        cursor: i === dropZone.length - 1 ? 'not-allowed' : 'pointer',
+                        opacity: i === dropZone.length - 1 ? 0.3 : 0.9,
+                        borderRadius: '3px',
+                        width: '20px',
+                        height: '20px',
+                        padding: 0,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '0.65rem',
+                        fontWeight: 700,
+                      }}
+                    >
+                      ▼
+                    </button>
+                    <button
+                      type="button"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                      }}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        removeBlock(i);
+                      }}
+                      style={{
+                        background: 'rgba(0, 0, 0, 0.3)',
+                        border: 'none',
+                        color: '#ffffff',
+                        cursor: 'pointer',
+                        fontSize: '0.9rem',
+                        fontWeight: 700,
+                        padding: '3px 8px',
+                        borderRadius: 'var(--radius-sm)',
+                        lineHeight: 1,
+                        zIndex: 10,
+                        transition: 'background 0.15s',
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255, 71, 87, 0.7)')}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(0, 0, 0, 0.3)')}
+                      title="Remove block and return to Available Blocks"
+                      aria-label={`Remove block ${block.label}`}
+                    >
+                      ✕
+                    </button>
+                  </div>
                 </div>
               );
             });

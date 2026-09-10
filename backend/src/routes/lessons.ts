@@ -243,9 +243,10 @@ function normalizeLessonActivityData(lesson: any) {
   // Lesson 12 / Nested Loops (Forest Theme)
   if (
     lesson.title?.includes('Nested Loops') ||
-    lesson.title?.includes('Loops Inside Loops')
+    lesson.title?.includes('Loops Inside Loops') ||
+    lesson.id === 12
   ) {
-    if (!data.availableBlocks || data.availableBlocks.filter((b: any) => b.type === 'move').length < 6) {
+    if (!data.availableBlocks || data.availableBlocks.filter((b: any) => b.type === 'repeat').length < 7) {
       data = {
         ...data,
         instructions: 'Use nested loops to sweep the enchanted forest and gather all magical crystals!',
@@ -270,12 +271,14 @@ function normalizeLessonActivityData(lesson: any) {
           { id: 'l12-tr2', type: 'turn-right', label: '🟢 Turn Right', color: '#01A3A4' },
           { id: 'l12-tl1', type: 'turn-left', label: '🟠 Turn Left', color: '#FF9F43' },
           { id: 'l12-tl2', type: 'turn-left', label: '🟠 Turn Left', color: '#FF9F43' },
-          { id: 'l12-r2', type: 'repeat', label: '🔁 Repeat 2 times', color: '#da77f2', repeatCount: 2 },
+          { id: 'l12-r2-1', type: 'repeat', label: '🔁 Repeat 2 times', color: '#da77f2', repeatCount: 2 },
+          { id: 'l12-r2-2', type: 'repeat', label: '🔁 Repeat 2 times', color: '#da77f2', repeatCount: 2 },
+          { id: 'l12-r2-3', type: 'repeat', label: '🔁 Repeat 2 times', color: '#da77f2', repeatCount: 2 },
+          { id: 'l12-r2-4', type: 'repeat', label: '🔁 Repeat 2 times', color: '#da77f2', repeatCount: 2 },
+          { id: 'l12-r2-5', type: 'repeat', label: '🔁 Repeat 2 times', color: '#da77f2', repeatCount: 2 },
+          { id: 'l12-r2-6', type: 'repeat', label: '🔁 Repeat 2 times', color: '#da77f2', repeatCount: 2 },
           { id: 'l12-r3', type: 'repeat', label: '🔁 Repeat 3 times', color: '#da77f2', repeatCount: 3 },
           { id: 'l12-r4', type: 'repeat', label: '🔁 Repeat 4 times', color: '#da77f2', repeatCount: 4 },
-          { id: 'l12-pk1', type: 'pick-up', label: '🟡 Pick Up Coin', color: '#FECA57' },
-          { id: 'l12-pk2', type: 'pick-up', label: '🟡 Pick Up Coin', color: '#FECA57' },
-          { id: 'l12-pk3', type: 'pick-up', label: '🟡 Pick Up Coin', color: '#FECA57' },
         ],
         hints: [
           'Repeat blocks allow you to glide through multiple squares with minimal code.',
@@ -289,9 +292,10 @@ function normalizeLessonActivityData(lesson: any) {
   // Lesson 13 / The Grand Master Quest (Citadel Gate Theme)
   if (
     lesson.title?.includes('Grand Master') ||
-    lesson.title?.includes('Citadel')
+    lesson.title?.includes('Citadel') ||
+    lesson.id === 13
   ) {
-    if (!data.availableBlocks || data.availableBlocks.filter((b: any) => b.type === 'move').length < 6) {
+    if (!data.availableBlocks || data.availableBlocks.filter((b: any) => b.type === 'repeat').length < 7) {
       data = {
         ...data,
         instructions: 'The Grand Master Challenge! Find the Key 🗝️ to unlock the Cosmic Gate 🚪, gather the crystals, and reach the Citadel Core!',
@@ -320,11 +324,14 @@ function normalizeLessonActivityData(lesson: any) {
           { id: 'l13-tr2', type: 'turn-right', label: '🟢 Turn Right', color: '#01A3A4' },
           { id: 'l13-tl1', type: 'turn-left', label: '🟠 Turn Left', color: '#FF9F43' },
           { id: 'l13-tl2', type: 'turn-left', label: '🟠 Turn Left', color: '#FF9F43' },
-          { id: 'l13-r2', type: 'repeat', label: '🔁 Repeat 2 times', color: '#da77f2', repeatCount: 2 },
+          { id: 'l13-r2-1', type: 'repeat', label: '🔁 Repeat 2 times', color: '#da77f2', repeatCount: 2 },
+          { id: 'l13-r2-2', type: 'repeat', label: '🔁 Repeat 2 times', color: '#da77f2', repeatCount: 2 },
+          { id: 'l13-r2-3', type: 'repeat', label: '🔁 Repeat 2 times', color: '#da77f2', repeatCount: 2 },
+          { id: 'l13-r2-4', type: 'repeat', label: '🔁 Repeat 2 times', color: '#da77f2', repeatCount: 2 },
+          { id: 'l13-r2-5', type: 'repeat', label: '🔁 Repeat 2 times', color: '#da77f2', repeatCount: 2 },
+          { id: 'l13-r2-6', type: 'repeat', label: '🔁 Repeat 2 times', color: '#da77f2', repeatCount: 2 },
           { id: 'l13-r3', type: 'repeat', label: '🔁 Repeat 3 times', color: '#da77f2', repeatCount: 3 },
           { id: 'l13-r4', type: 'repeat', label: '🔁 Repeat 4 times', color: '#da77f2', repeatCount: 4 },
-          { id: 'l13-pk1', type: 'pick-up', label: '🟡 Pick Up Coin', color: '#FECA57' },
-          { id: 'l13-pk2', type: 'pick-up', label: '🟡 Pick Up Coin', color: '#FECA57' },
         ],
         hints: [
           'Head straight right across the top row to collect the Key at (0, 4).',
