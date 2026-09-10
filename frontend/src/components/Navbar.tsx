@@ -11,6 +11,17 @@ export default function Navbar() {
   const { user } = useAuth();
   const location = useLocation();
   const [totalPoints, setTotalPoints] = useState(0);
+  const [ambientOn, setAmbientOn] = useState(() => {
+    const saved = localStorage.getItem('codequest_ambient_enabled');
+    return saved === null ? true : saved === 'true';
+  });
+
+  const toggleAmbient = () => {
+    const next = !ambientOn;
+    setAmbientOn(next);
+    localStorage.setItem('codequest_ambient_enabled', String(next));
+    window.dispatchEvent(new CustomEvent('codequest_ambient_toggle', { detail: { enabled: next } }));
+  };
 
   useEffect(() => {
     if (user?.role === 'learner') {
@@ -38,6 +49,16 @@ export default function Navbar() {
       </div>
 
       <div className="topbar-right">
+        <button
+          type="button"
+          className={`topbar-ambient-toggle ${ambientOn ? 'active' : ''}`}
+          onClick={toggleAmbient}
+          title={ambientOn ? 'Turn off floating background particles' : 'Turn on floating background particles'}
+        >
+          <span>✨</span>
+          <span>{ambientOn ? 'Ambient: ON' : 'Ambient: OFF'}</span>
+        </button>
+
         {user.role === 'learner' && (
           <>
             <div className="topbar-badge points">

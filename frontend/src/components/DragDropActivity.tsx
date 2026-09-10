@@ -67,9 +67,9 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
   // Theme-based default emojis
   const defaultAvatars: Record<string, { char: string; goal: string; wall: string }> = {
     classic: { char: '🤖', goal: '🏆', wall: '🧱' },
-    space:   { char: '🚀', goal: '🪐', wall: '☄️' },
-    castle:  { char: '🧙‍♂️', goal: '🏰', wall: '🧱' },
-    forest:  { char: '🦊', goal: '🌳', wall: '🪨' },
+    space: { char: '🚀', goal: '🪐', wall: '☄️' },
+    castle: { char: '🧙‍♂️', goal: '🏰', wall: '🧱' },
+    forest: { char: '🦊', goal: '🌳', wall: '🪨' },
   };
   const charEmoji = activity.characterEmoji || defaultAvatars[theme]?.char || '🤖';
   const goalEmoji = activity.goalEmoji || defaultAvatars[theme]?.goal || '🏆';
@@ -475,7 +475,7 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
     const totalCoins = activity.collectibles?.length || 0;
     const totalKeys = activity.keys?.length || 0;
     const collectedAll = (totalCoins === 0 || lastStep.collected.length >= totalCoins) &&
-                         (totalKeys === 0 || lastStep.keys.length >= totalKeys);
+      (totalKeys === 0 || lastStep.keys.length >= totalKeys);
 
     const isFreePlay = !activity.correctSequence || activity.correctSequence.length === 0;
     const isCorrect = isSequenceCorrect(currentDropZone);
@@ -792,11 +792,9 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
                 return (
                   <div
                     key={i}
-                    className={`grid-cell ${isWall ? 'wall' : ''} ${isVisited ? 'visited' : ''} ${
-                      isCharacter ? 'character' : ''
-                    } ${isGoal && !isCharacter ? 'goal' : ''} ${isCollectible ? 'collectible' : ''} ${
-                      isKey ? 'key-cell' : ''
-                    } ${isDoor ? (isDoorUnlocked ? 'door-open' : 'door-locked') : ''}`}
+                    className={`grid-cell ${isWall ? 'wall' : ''} ${isVisited ? 'visited' : ''} ${isCharacter ? 'character' : ''
+                      } ${isGoal && !isCharacter ? 'goal' : ''} ${isCollectible ? 'collectible' : ''} ${isKey ? 'key-cell' : ''
+                      } ${isDoor ? (isDoorUnlocked ? 'door-open' : 'door-locked') : ''}`}
                     style={{
                       position: 'relative',
                       border: isCharacter && isGoal ? '3px solid var(--color-accent-green)' : undefined,
@@ -846,10 +844,10 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
                             direction === 0
                               ? 'Facing Right'
                               : direction === 1
-                              ? 'Facing Down'
-                              : direction === 2
-                              ? 'Facing Left'
-                              : 'Facing Up'
+                                ? 'Facing Down'
+                                : direction === 2
+                                  ? 'Facing Left'
+                                  : 'Facing Up'
                           }
                         >
                           {direction === 0 ? '▶' : direction === 1 ? '▼' : direction === 2 ? '◀' : '▲'}
@@ -988,9 +986,8 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
       <div className="mb-lg">
         <label className="form-label">🎯 Your Program (robot moves live as you drop!)</label>
         <div
-          className={`drop-zone ${dragOver ? 'drag-over' : ''} ${
-            result === 'success' ? 'correct' : result === 'error' ? 'incorrect' : ''
-          }`}
+          className={`drop-zone ${dragOver ? 'drag-over' : ''} ${result === 'success' ? 'correct' : result === 'error' ? 'incorrect' : ''
+            }`}
           onDragOver={(e) => {
             e.preventDefault();
             setDragOver(true);
@@ -1002,14 +999,14 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
               result === 'success'
                 ? 'var(--color-accent-green)'
                 : result === 'error'
-                ? 'var(--color-accent-red)'
-                : undefined,
+                  ? 'var(--color-accent-red)'
+                  : undefined,
             background:
               result === 'success'
                 ? 'rgba(0, 184, 148, 0.1)'
                 : result === 'error'
-                ? 'rgba(255, 107, 107, 0.1)'
-                : undefined,
+                  ? 'rgba(255, 107, 107, 0.1)'
+                  : undefined,
           }}
         >
           {dropZone.length === 0 && (
@@ -1113,8 +1110,8 @@ export default function DragDropActivity({ activity, onComplete, onGoToQuiz }: D
             {starResult.stars === 3
               ? '🌟 Master Coder! 3/3 Stars Earned!'
               : starResult.stars === 2
-              ? '⭐ Great Job! 2/3 Stars Earned!'
-              : '⭐ Level Cleared! 1/3 Stars Earned!'}
+                ? '⭐ Great Job! 2/3 Stars Earned!'
+                : '⭐ Level Cleared! 1/3 Stars Earned!'}
           </div>
 
           {/* Star Challenges Details */}

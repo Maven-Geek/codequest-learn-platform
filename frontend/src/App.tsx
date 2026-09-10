@@ -17,6 +17,7 @@ import TeacherDashboard from './pages/TeacherDashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import LessonManager from './pages/LessonManager';
 import UserManager from './pages/UserManager';
+import AmbientBackground from './components/AmbientBackground';
 
 function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode; allowedRoles?: string[] }) {
   const { isAuthenticated, user, loading } = useAuth();
@@ -59,8 +60,9 @@ export default function App() {
   if (isAuthenticated) {
     return (
       <div className="app-layout">
+        <AmbientBackground />
         <Sidebar />
-        <div className="main-content">
+        <div className="main-content" style={{ position: 'relative', zIndex: 1 }}>
           <Navbar />
           <Routes>
             {/* Learner only — non-learners cannot take tasks */}

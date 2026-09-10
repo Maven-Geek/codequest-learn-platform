@@ -58,8 +58,8 @@ export default function Sidebar() {
 
   return (
     <>
-      <button 
-        className="mobile-menu-btn" 
+      <button
+        className="mobile-menu-btn"
         onClick={() => setIsOpen(!isOpen)}
         aria-label="Toggle Menu"
       >
@@ -68,8 +68,8 @@ export default function Sidebar() {
 
       {/* Overlay to close sidebar when clicking outside on mobile */}
       {isOpen && (
-        <div 
-          className="sidebar-overlay" 
+        <div
+          className="sidebar-overlay"
           onClick={() => setIsOpen(false)}
         ></div>
       )}
@@ -103,9 +103,6 @@ export default function Sidebar() {
 
         {/* Bottom area */}
         <div className="sidebar-bottom">
-          <button className="sidebar-cta">
-            🚀 Unlock New Worlds
-          </button>
           <button className="sidebar-logout" onClick={logout}>
             Logout
           </button>

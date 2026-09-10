@@ -295,12 +295,15 @@ async function checkAndAwardBadges(userId: number, lessonId: number, quizScore: 
   await checkLevel(1, 'complete_level_1');
   await checkLevel(2, 'complete_level_2');
   await checkLevel(3, 'complete_level_3');
+  await checkLevel(4, 'complete_level_4');
 
   // Lesson-specific badges
   const lessonBadges: Record<number, string> = {
     4: 'complete_lesson_4',
     6: 'complete_lesson_6',
-    9: 'complete_lesson_9'
+    9: 'complete_lesson_9',
+    11: 'bug_hunter',
+    13: 'master_coder',
   };
   if (lessonBadges[lessonId]) {
     const badge = await query("SELECT * FROM badges WHERE criteria = $1", [lessonBadges[lessonId]]);

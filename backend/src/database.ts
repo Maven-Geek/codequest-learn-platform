@@ -139,6 +139,269 @@ export async function initializeDatabase(): Promise<void> {
   } catch (e) {
     // Column may already exist, ignore
   }
+
+  // Ensure Level 4 (Cosmic Citadel) and lessons exist for existing and new databases
+  await ensureLevel4Exists();
+}
+
+// ---- Level 4 Migration & Setup ----
+export async function ensureLevel4Exists(): Promise<void> {
+  try {
+    const level4Check = await query('SELECT id FROM levels WHERE order_index = 4');
+    let level4Id: number;
+
+    if (level4Check.rows.length === 0) {
+      console.log('🌌 Adding Level 4: Cosmic Citadel...');
+      const levelRes = await query(
+        `INSERT INTO levels (title, order_index, description, icon_emoji) VALUES ($1, $2, $3, $4) RETURNING id`,
+        [
+          'Cosmic Citadel',
+          4,
+          'Journey into deep space! Master reusable functions, conquer nested loops, and debug like a champion detective!',
+          '🌌',
+        ]
+      );
+      level4Id = levelRes.rows[0].id;
+    } else {
+      level4Id = level4Check.rows[0].id;
+    }
+
+    // Check if Lesson 10 exists
+    const l10Check = await query('SELECT id FROM lessons WHERE level_id = $1 AND order_index = 1', [level4Id]);
+    if (l10Check.rows.length === 0) {
+      console.log('📚 Adding Level 4 Lessons (10, 11, 12, 13) and Quizzes...');
+
+      // Lesson 10: Magic Functions
+      const l10 = await query(
+        `INSERT INTO lessons (level_id, order_index, title, explanation, example, activity_type, activity_data) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
+        [
+          level4Id, 1, 'Magic Functions: Reusable Spells',
+          `# Magic Functions: Reusable Spells! 🪄\n\nHave you ever wished you could give a nickname to a whole bunch of steps? In coding, that's called a **Function**!\n\nInstead of writing:\n- 🔵 Move Forward\n- 🟢 Turn Right\n- 🔵 Move Forward\n\nover and over, you can bundle them into a function called \`jumpSquare()\`!\n\nWhenever you want the robot to do those steps, you just call your function: **\`jumpSquare()\`**! Functions save you time and keep your code tidy.`,
+          `## Creating a Function 🧙\n\n\`\`\`javascript\nfunction collectGem() {\n  moveForward();\n  pickUp();\n}\n\n// Now call your magic spell twice!\ncollectGem();\ncollectGem();\n\`\`\`\nFunctions turn big, confusing code into clean, reusable superpowers!`,
+          'drag-drop',
+          JSON.stringify({
+            instructions: 'Define your cosmic movement spell! Guide the rocket around asteroids and collect the energy stars.',
+            theme: 'space',
+            characterEmoji: '🚀',
+            goalEmoji: '🪐',
+            gridSize: { rows: 4, cols: 5 },
+            startPosition: { row: 0, col: 0 },
+            endPosition: { row: 3, col: 4 },
+            walls: [{ row: 1, col: 1 }, { row: 1, col: 2 }, { row: 2, col: 2 }],
+            collectibles: [{ row: 0, col: 3 }, { row: 2, col: 0 }],
+            availableBlocks: [
+              { id: 'l10-m1', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+              { id: 'l10-m2', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+              { id: 'l10-m3', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+              { id: 'l10-tr', type: 'turn-right', label: '🟢 Turn Right', color: '#01A3A4' },
+              { id: 'l10-tl', type: 'turn-left', label: '🟠 Turn Left', color: '#FF9F43' },
+              { id: 'l10-rep', type: 'repeat', label: '🔁 Repeat 2 times', color: '#da77f2', repeatCount: 2 },
+              { id: 'l10-pk', type: 'pick-up', label: '🟡 Pick Up Coin', color: '#FECA57' },
+            ],
+            hints: ['Move right across row 0 to grab the first star', 'Turn down to bypass the asteroid cluster', 'Use repeat blocks for a 3-star efficiency rating!'],
+            maxBlocksStar: 6,
+          }),
+        ]
+      );
+      const l10Id = l10.rows[0].id;
+      const q10 = await query('INSERT INTO quizzes (lesson_id, passing_score) VALUES ($1, $2) RETURNING id', [l10Id, 70]);
+      await query(
+        'INSERT INTO quiz_questions (quiz_id, question_text, options, order_index) VALUES ($1, $2, $3, $4)',
+        [q10.rows[0].id, 'What is a FUNCTION in computer programming?', JSON.stringify([
+          { text: 'A named block of instructions that you can reuse anytime', isCorrect: true },
+          { text: 'A broken computer part', isCorrect: false },
+          { text: 'A key on the keyboard that deletes words', isCorrect: false },
+          { text: 'A type of video game level', isCorrect: false },
+        ]), 1]
+      );
+      await query(
+        'INSERT INTO quiz_questions (quiz_id, question_text, options, order_index) VALUES ($1, $2, $3, $4)',
+        [q10.rows[0].id, 'Why do programmers love using functions?', JSON.stringify([
+          { text: 'They make the computer run slower', isCorrect: false },
+          { text: 'They avoid repeating code and make programs organized and easy to read', isCorrect: true },
+          { text: 'They change the computer screen color', isCorrect: false },
+        ]), 2]
+      );
+
+      // Lesson 11: The Bug Detective
+      const l11 = await query(
+        `INSERT INTO lessons (level_id, order_index, title, explanation, example, activity_type, activity_data) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
+        [
+          level4Id, 2, 'The Bug Detective: Finding & Fixing Errors',
+          `# The Bug Detective 🔍🐞\n\nA "bug" is an error or mistake in code. Even the smartest engineers make bugs every day!\n\n**Debugging** is like solving a mystery:\n1. 🧐 **Inspect**: Watch where the robot goes.\n2. 📍 **Isolate**: Find the exact instruction that went wrong.\n3. 🛠️ **Fix**: Swap the block and test again!\n\nNever feel discouraged by errors — finding bugs is how great coders learn!`,
+          `## Spotting the Bug 🕵️\n\nIf the robot hits a wall on Step 2:\n\`\`\`text\n1. Move Forward\n2. Move Forward ❌ (Hits wall!)\n3. Turn Left\n\`\`\`\nFix it by changing Step 2 to **Turn Right** before moving forward!`,
+          'drag-drop',
+          JSON.stringify({
+            instructions: 'Be a bug detective! The old program had wall collisions. Plan the correct route through the castle corridor.',
+            theme: 'castle',
+            characterEmoji: '🧙‍♂️',
+            goalEmoji: '👑',
+            gridSize: { rows: 4, cols: 4 },
+            startPosition: { row: 0, col: 0 },
+            endPosition: { row: 3, col: 3 },
+            walls: [{ row: 0, col: 1 }, { row: 2, col: 1 }, { row: 2, col: 2 }],
+            collectibles: [{ row: 1, col: 0 }, { row: 3, col: 1 }],
+            availableBlocks: [
+              { id: 'l11-m1', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+              { id: 'l11-m2', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+              { id: 'l11-m3', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+              { id: 'l11-m4', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+              { id: 'l11-tr', type: 'turn-right', label: '🟢 Turn Right', color: '#01A3A4' },
+              { id: 'l11-tl', type: 'turn-left', label: '🟠 Turn Left', color: '#FF9F43' },
+              { id: 'l11-pk', type: 'pick-up', label: '🟡 Pick Up Coin', color: '#FECA57' },
+            ],
+            hints: ['The top path is blocked by castle walls', 'Head down column 0 first to grab the crystal', 'Turn right and navigate around the stone barrier'],
+            maxBlocksStar: 6,
+          }),
+        ]
+      );
+      const l11Id = l11.rows[0].id;
+      const q11 = await query('INSERT INTO quizzes (lesson_id, passing_score) VALUES ($1, $2) RETURNING id', [l11Id, 70]);
+      await query(
+        'INSERT INTO quiz_questions (quiz_id, question_text, options, order_index) VALUES ($1, $2, $3, $4)',
+        [q11.rows[0].id, 'What is a "BUG" in computer programming?', JSON.stringify([
+          { text: 'An insect living inside the laptop', isCorrect: false },
+          { text: 'A mistake or error in the code that makes it behave unexpectedly', isCorrect: true },
+          { text: 'A special type of computer monitor', isCorrect: false },
+        ]), 1]
+      );
+      await query(
+        'INSERT INTO quiz_questions (quiz_id, question_text, options, order_index) VALUES ($1, $2, $3, $4)',
+        [q11.rows[0].id, 'What should you do when your program hits a bug?', JSON.stringify([
+          { text: 'Throw the computer away', isCorrect: false },
+          { text: 'Trace the steps, find where it went wrong, and test a fix', isCorrect: true },
+          { text: 'Skip the lesson completely', isCorrect: false },
+        ]), 2]
+      );
+
+      // Lesson 12: Nested Loops
+      const l12 = await query(
+        `INSERT INTO lessons (level_id, order_index, title, explanation, example, activity_type, activity_data) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
+        [
+          level4Id, 3, 'Nested Loops: Loops Inside Loops',
+          `# Loops Inside Loops! 🌀\n\nWhen a loop lives inside another loop, we call it a **Nested Loop**!\n\nThink about jumping jacks in gym class:\n- **Outer loop**: 3 sets\n- **Inner loop**: 10 jumps per set\n\nTotal jumps = 3 × 10 = 30 jumps!\n\nIn coding, nested loops let you sweep across entire 2D grids, create patterns, or scan multiple rows in just a few blocks!`,
+          `## Example: 2D Sweeper 🧹\n\n\`\`\`javascript\nrepeat (3 times) {      // Outer loop\n  repeat (3 times) {    // Inner loop\n    moveForward();\n  }\n  turnRight();\n}\n\`\`\`\nNested loops produce powerful results with minimal code!`,
+          'drag-drop',
+          JSON.stringify({
+            instructions: 'Use nested loops to sweep the enchanted forest and gather all magical mushrooms!',
+            theme: 'forest',
+            characterEmoji: '🦊',
+            goalEmoji: '🌳',
+            gridSize: { rows: 5, cols: 5 },
+            startPosition: { row: 0, col: 0 },
+            endPosition: { row: 4, col: 4 },
+            walls: [{ row: 1, col: 2 }, { row: 3, col: 2 }],
+            collectibles: [{ row: 0, col: 2 }, { row: 2, col: 2 }, { row: 4, col: 2 }],
+            availableBlocks: [
+              { id: 'l12-m1', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+              { id: 'l12-m2', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+              { id: 'l12-tr', type: 'turn-right', label: '🟢 Turn Right', color: '#01A3A4' },
+              { id: 'l12-tl', type: 'turn-left', label: '🟠 Turn Left', color: '#FF9F43' },
+              { id: 'l12-r2', type: 'repeat', label: '🔁 Repeat 2 times', color: '#da77f2', repeatCount: 2 },
+              { id: 'l12-r3', type: 'repeat', label: '🔁 Repeat 3 times', color: '#da77f2', repeatCount: 3 },
+              { id: 'l12-pk', type: 'pick-up', label: '🟡 Pick Up Coin', color: '#FECA57' },
+            ],
+            hints: ['Repeat blocks allow you to glide through multiple squares', 'Collect all 3 coins on your path to the Ancient Tree'],
+            maxBlocksStar: 6,
+          }),
+        ]
+      );
+      const l12Id = l12.rows[0].id;
+      const q12 = await query('INSERT INTO quizzes (lesson_id, passing_score) VALUES ($1, $2) RETURNING id', [l12Id, 70]);
+      await query(
+        'INSERT INTO quiz_questions (quiz_id, question_text, options, order_index) VALUES ($1, $2, $3, $4)',
+        [q12.rows[0].id, 'What is a NESTED LOOP?', JSON.stringify([
+          { text: 'A loop that never stops running', isCorrect: false },
+          { text: 'A loop placed inside another loop', isCorrect: true },
+          { text: 'A loop made for drawing birds', isCorrect: false },
+        ]), 1]
+      );
+      await query(
+        'INSERT INTO quiz_questions (quiz_id, question_text, options, order_index) VALUES ($1, $2, $3, $4)',
+        [q12.rows[0].id, 'If the outer loop runs 3 times and the inner loop runs 4 times, how many times does the inner action happen?', JSON.stringify([
+          { text: '7 times', isCorrect: false },
+          { text: '12 times (3 × 4)', isCorrect: true },
+          { text: '1 time', isCorrect: false },
+        ]), 2]
+      );
+
+      // Lesson 13: The Grand Master Quest
+      const l13 = await query(
+        `INSERT INTO lessons (level_id, order_index, title, explanation, example, activity_type, activity_data) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
+        [
+          level4Id, 4, 'The Grand Master Quest',
+          `# The Grand Master Quest 🌌👑\n\nYou have ascended to the core of the Cosmic Citadel!\n\nThis is the ultimate test combining **everything** in your programming journey:\n- 🧭 **Sequencing**: Precision instructions\n- 🔁 **Loops**: Code efficiency\n- 🗝️ **Keys & Doors**: Unlocking locked gateways\n- 🧱 **Obstacles**: Navigating around cosmic hazards\n\nSolve the maze, unlock the portal, and become a Grand Master Coder!`,
+          `## Master Quest Strategy 🗺️\n\n1. 🗝️ Fly toward the Golden Key\n2. 🚪 Step onto the Locked Cosmic Doorway to unlock it\n3. 🪙 Collect the bonus energy crystals\n4. 🌌 Touch the Citadel Core!`,
+          'drag-drop',
+          JSON.stringify({
+            instructions: 'The Grand Master Challenge! Find the Key 🗝️ to unlock the Cosmic Gate 🚪, gather the crystals, and reach the Citadel Core!',
+            theme: 'space',
+            characterEmoji: '🚀',
+            goalEmoji: '🌌',
+            gridSize: { rows: 5, cols: 5 },
+            startPosition: { row: 0, col: 0 },
+            endPosition: { row: 4, col: 4 },
+            keys: [{ row: 0, col: 4 }],
+            doors: [{ row: 2, col: 2 }],
+            walls: [{ row: 1, col: 1 }, { row: 2, col: 1 }, { row: 2, col: 3 }, { row: 3, col: 3 }],
+            collectibles: [{ row: 1, col: 4 }, { row: 4, col: 1 }],
+            availableBlocks: [
+              { id: 'l13-m1', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+              { id: 'l13-m2', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+              { id: 'l13-m3', type: 'move', label: '🔵 Move Forward', color: '#54A0FF' },
+              { id: 'l13-tr', type: 'turn-right', label: '🟢 Turn Right', color: '#01A3A4' },
+              { id: 'l13-tl', type: 'turn-left', label: '🟠 Turn Left', color: '#FF9F43' },
+              { id: 'l13-r2', type: 'repeat', label: '🔁 Repeat 2 times', color: '#da77f2', repeatCount: 2 },
+              { id: 'l13-r4', type: 'repeat', label: '🔁 Repeat 4 times', color: '#da77f2', repeatCount: 4 },
+              { id: 'l13-pk', type: 'pick-up', label: '🟡 Pick Up Coin', color: '#FECA57' },
+            ],
+            hints: [
+              'Head straight right across the top row to collect the Key at (0, 4)',
+              'Once you have the Key, the locked door at (2, 2) can be opened',
+              'Use repeat 4 times for maximum speed and 3 stars!',
+            ],
+            maxBlocksStar: 7,
+          }),
+        ]
+      );
+      const l13Id = l13.rows[0].id;
+      const q13 = await query('INSERT INTO quizzes (lesson_id, passing_score) VALUES ($1, $2) RETURNING id', [l13Id, 70]);
+      await query(
+        'INSERT INTO quiz_questions (quiz_id, question_text, options, order_index) VALUES ($1, $2, $3, $4)',
+        [q13.rows[0].id, 'What makes a program truly "efficient"?', JSON.stringify([
+          { text: 'Using 100 blocks when 3 blocks could do the same thing', isCorrect: false },
+          { text: 'Accomplishing the goal cleanly with the fewest, clearest instructions', isCorrect: true },
+          { text: 'Making the computer as hot as possible', isCorrect: false },
+        ]), 1]
+      );
+      await query(
+        'INSERT INTO quiz_questions (quiz_id, question_text, options, order_index) VALUES ($1, $2, $3, $4)',
+        [q13.rows[0].id, 'What is the most powerful tool a coder has?', JSON.stringify([
+          { text: 'A giant keyboard', isCorrect: false },
+          { text: 'Curiosity, persistence, and logical thinking', isCorrect: true },
+          { text: 'Memorizing thousands of lines of text', isCorrect: false },
+        ]), 2]
+      );
+
+      // Add Badges for Level 4 safely
+      const level4Badges = [
+        { name: 'Cosmic Champion', desc: 'Complete all lessons in Cosmic Citadel!', icon: '🌌', criteria: 'complete_level_4' },
+        { name: 'Bug Detective', desc: 'Master finding and fixing bugs!', icon: '🔍', criteria: 'bug_hunter' },
+        { name: 'Grand Master', desc: 'Complete the Grand Master Quest!', icon: '👑', criteria: 'master_coder' },
+      ];
+
+      for (const b of level4Badges) {
+        const bCheck = await query('SELECT id FROM badges WHERE criteria = $1', [b.criteria]);
+        if (bCheck.rows.length === 0) {
+          await query('INSERT INTO badges (name, description, icon_emoji, criteria) VALUES ($1, $2, $3, $4)', [b.name, b.desc, b.icon, b.criteria]);
+        }
+      }
+
+      console.log('✅ Level 4: Cosmic Citadel and all lessons & quizzes ready!');
+    }
+  } catch (err) {
+    console.error('Failed to ensure Level 4 exists:', err);
+  }
 }
 
 // ---- Seed Data ----
@@ -158,7 +421,8 @@ export async function seedDatabase(): Promise<void> {
     `INSERT INTO levels (title, order_index, description, icon_emoji) VALUES
       ('Star Island', 1, 'Begin your coding adventure! Learn what coding is and how to give instructions step by step.', '🌟'),
       ('Rocket Valley', 2, 'Blast off with loops, patterns, and making decisions in your code!', '🚀'),
-      ('Champion Peak', 3, 'Reach the top! Use variables, combine skills, and create your own programs!', '🏆')`
+      ('Champion Peak', 3, 'Reach the top! Use variables, combine skills, and create your own programs!', '🏆'),
+      ('Cosmic Citadel', 4, 'Journey into deep space! Master reusable functions, conquer nested loops, and debug like a champion detective!', '🌌')`
   );
 
   // ---- Lessons ----

@@ -2613,3 +2613,49 @@ textarea.form-input {
   cursor: pointer;
   padding: var(--space-sm);
 }
+
+/* Ambient Background Float Animations */
+.ambient-particle {
+  animation: ambientFloat ease-in-out infinite alternate;
+  will-change: transform;
+}
+
+@keyframes ambientFloat {
+  0% {
+    transform: translateY(0px) rotate(0deg) scale(0.95);
+  }
+  50% {
+    transform: translateY(-26px) rotate(8deg) scale(1.05);
+  }
+  100% {
+    transform: translateY(-50px) rotate(-6deg) scale(0.98);
+  }
+}
+
+.topbar-ambient-toggle {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-pill);
+  padding: 4px 10px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  transition: all var(--transition-fast);
+}
+
+.topbar-ambient-toggle:hover {
+  background: var(--color-bg-warm);
+  color: var(--color-text);
+  border-color: var(--color-border);
+}
+
+.topbar-ambient-toggle.active {
+  background: rgba(0, 99, 156, 0.08);
+  color: var(--color-primary);
+  border-color: var(--color-primary-light);
+}
+
