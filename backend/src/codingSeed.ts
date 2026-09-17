@@ -138,7 +138,7 @@ export async function ensureCodingCurriculumExists(query: (text: string, params?
       orderIndex: 1,
       title: 'Python: Declaring Variables 🐍',
       language: 'python',
-      explanation: `# Declaring Variables in Python 🐍\n\nA **variable** is a labeled box in computer memory that stores information.\n\nIn Python, creating a variable is super simple: you write the name, an equals sign \`=\`, and the value!\n\n### Rules for Python Variables:\n- Variable names use **snake_case** (lowercase letters with underscores: \`hero_name\`, \`player_score\`).\n- Text values are called **strings** and are wrapped in quotes: \`"Alex"\`.\n- Numbers don't need quotes: \`42\` or \`99.5\`.\n- Comments start with \`#\` and explain what code does (Recommendation #12: Good documentation habits!).`,
+      explanation: `# Declaring Variables in Python 🐍\n\nA **variable** is a labeled box in computer memory that stores information.\n\nIn Python, creating a variable is super simple: you write the name, an equals sign \`=\`, and the value!\n\n### Rules for Python Variables:\n- Variable names use **snake_case** (lowercase letters with underscores: \`hero_name\`, \`player_score\`).\n- Text values are called **strings** and are wrapped in quotes: \`"Alex"\`.\n- Numbers don't need quotes: \`42\` or \`99.5\`.\n- Comments start with \`#\` and explain what code does.`,
       example: `\`\`\`python
 # Storing a hero's name and level
 hero_name = "Pixel Knight"
@@ -202,14 +202,14 @@ level = 12             # int
 health_ratio = 98.5    # float
 is_invincible = True   # bool
 
-print(type(username))  # <class 'str'>
-print(type(level))     # <class 'int'>
+print(username)        # Aria
+print(level)           # 12
 print(is_invincible)   # True
 \`\`\``,
       activityData: {
         language: 'python',
-        instructions: '1. Create `quest_name = "Dragon Mountain"`\n2. Create `gold_reward = 250`\n3. Create `is_active = True`\n4. Print `quest_name`, `gold_reward`, and `is_active`',
-        starterCode: `# Explore data types in Python!\nquest_name = ""\ngold_reward = 0\nis_active = False\n\n# Set correct values and print them\n`,
+        instructions: '1. Set `quest_name` to `"Dragon Mountain"`\n2. Set `gold_reward` to `250`\n3. Set `is_active` to `True`\n4. Print all three variables using `print()`',
+        starterCode: `# Explore data types in Python!\n# Set the correct values below:\nquest_name = ""\ngold_reward = 0\nis_active = False\n\n# Print each variable:\n# print(quest_name)\n# print(gold_reward)\n# print(is_active)\n`,
         solution: `quest_name = "Dragon Mountain"\ngold_reward = 250\nis_active = True\nprint(quest_name)\nprint(gold_reward)\nprint(is_active)`,
         expectedOutput: `Dragon Mountain\n250\nTrue`,
         validationPatterns: [
@@ -373,8 +373,8 @@ console.log(\`Spell \${spell} costs \${manaCost} mana. Ready? \${isReady}\`);
 \`\`\``,
       activityData: {
         language: 'javascript',
-        instructions: '1. Create `let spell = "Frost Nova";`\n2. Create `let manaCost = 45;`\n3. Create `let isReady = true;`\n4. Print each with `console.log()`',
-        starterCode: `// JavaScript Data Types\nlet spell = "";\nlet manaCost = 0;\nlet isReady = false;\n\n// Update and print them!\n`,
+        instructions: '1. Set `spell` to `"Frost Nova"`\n2. Set `manaCost` to `45`\n3. Set `isReady` to `true`\n4. Print each with `console.log()`',
+        starterCode: `// JavaScript Data Types\n// Set the correct values below:\nlet spell = "";\nlet manaCost = 0;\nlet isReady = false;\n\n// Print each variable:\n// console.log(spell);\n// console.log(manaCost);\n// console.log(isReady);\n`,
         solution: `let spell = "Frost Nova";\nlet manaCost = 45;\nlet isReady = true;\nconsole.log(spell);\nconsole.log(manaCost);\nconsole.log(isReady);`,
         expectedOutput: `Frost Nova\n45\ntrue`,
         validationPatterns: [
@@ -736,7 +736,7 @@ print(weapon)
         solution: `player = {\n    "name": "Echo",\n    "level": 5\n}\nplayer["rank"] = "Captain"\nprint(player["name"])\nprint(player["rank"])`,
         expectedOutput: `Echo\nCaptain`,
         validationPatterns: [
-          'player\\s*=\\s*\\{.*"name"\\s*:\\s*["\']Echo["\'].*\\}',
+          'player\\s*=\\s*\\{[\\s\\S]*"name"\\s*:\\s*["\']Echo["\']',
           'player\\[["\']rank["\']\\]\\s*=\\s*["\']Captain["\']',
           'print\\s*\\(\\s*player\\[["\']name["\']\\]\\s*\\)',
           'print\\s*\\(\\s*player\\[["\']rank["\']\\]\\s*\\)'
@@ -775,7 +775,7 @@ print(weapon)
       orderIndex: 3,
       title: 'Python: Pseudo-Code to Real Code 📜',
       language: 'python',
-      explanation: `# Pseudo-Code to Real Code! 📜 (Recommendation #11)\n\n**Pseudo-code** is an algorithm written in plain English before you write real code. Professional programmers use it every day to plan their logic!\n\n### The Algorithm:\n\`\`\`text\nALGORITHM: Quest Inventory Calculator\n1. START with inventory list having "Potion" and "Shield"\n2. ADD "Crystal Key" to inventory\n3. COUNT total items in inventory\n4. DISPLAY total count\n\`\`\`\nNow let's translate it directly into real Python!`,
+      explanation: `# Pseudo-Code to Real Code! 📜\n\n**Pseudo-code** is an algorithm written in plain English before you write real code. Professional programmers use it every day to plan their logic!\n\n### The Algorithm:\n\`\`\`text\nALGORITHM: Quest Inventory Calculator\n1. START with inventory list having "Potion" and "Shield"\n2. ADD "Crystal Key" to inventory\n3. COUNT total items in inventory\n4. DISPLAY total count\n\`\`\`\nNow let's translate it directly into real Python!`,
       example: `\`\`\`python
 # Plain English plan:
 # 1. Store hero health as 100
@@ -916,7 +916,7 @@ console.log(hero.hp);
         solution: `let robot = {\n    name: "Circuit",\n    battery: 100\n};\nrobot.battery = 90;\nconsole.log(robot.name);\nconsole.log(robot.battery);`,
         expectedOutput: `Circuit\n90`,
         validationPatterns: [
-          'robot\\s*=\\s*\\{.*name:.*["\']Circuit["\'].*battery:\\s*100.*\\}',
+          'robot\\s*=\\s*\\{[\\s\\S]*name:\\s*["\']Circuit["\']',
           'robot\\.battery\\s*=\\s*90',
           'console\\.log\\s*\\(\\s*robot\\.name\\s*\\)',
           'console\\.log\\s*\\(\\s*robot\\.battery\\s*\\)'
@@ -953,7 +953,7 @@ console.log(hero.hp);
       orderIndex: 6,
       title: 'JavaScript: Pseudo-Code Translation 📜',
       language: 'javascript',
-      explanation: `# Translating Pseudo-Code to JavaScript! 📜 (Recommendation #11)\n\nLet's take an algorithm and turn it into real JavaScript code:\n\n\`\`\`text\nALGORITHM: Team Health Checker\n1. INITIALIZE party array with "Knight", "Archer"\n2. PUSH "Wizard" into party\n3. STORE total party size in count variable\n4. LOG the total party size\n\`\`\``,
+      explanation: `# Translating Pseudo-Code to JavaScript! 📜\n\nLet's take an algorithm and turn it into real JavaScript code:\n\n\`\`\`text\nALGORITHM: Team Health Checker\n1. INITIALIZE party array with "Knight", "Archer"\n2. PUSH "Wizard" into party\n3. STORE total party size in count variable\n4. LOG the total party size\n\`\`\``,
       example: `\`\`\`javascript
 // Pseudo-code:
 // Create cart with item price 20
@@ -1126,7 +1126,7 @@ public class Main {
       orderIndex: 9,
       title: 'Java: Pseudo-Code Translation 📜',
       language: 'java',
-      explanation: `# Algorithm Planning to Java ☕ (Recommendation #11)\n\nLet's plan and execute a crystal collector algorithm:\n\n\`\`\`text\nALGORITHM: Vault Security Check\n1. DECLARE integer array vaultCodes with 101, 202, 303\n2. REASSIGN vaultCodes[0] to 999\n3. PRINT vaultCodes[0]\n\`\`\``,
+      explanation: `# Algorithm Planning to Java ☕\n\nLet's plan and execute an algorithm step by step:\n\n\`\`\`text\nALGORITHM: Vault Security Check\n1. DECLARE integer array vaultCodes with 101, 202, 303\n2. REASSIGN vaultCodes[0] to 999\n3. PRINT vaultCodes[0]\n\`\`\``,
       example: `\`\`\`java
 public class Main {
     public static void main(String[] args) {
@@ -1183,7 +1183,7 @@ public class Main {
       orderIndex: 1,
       title: 'Python: If/Else & The Bug Detective 🔍🐞',
       language: 'python',
-      explanation: `# Conditionals & Error Debugging in Python 🐍 (Recommendation #9)\n\nIn Python, **\`if\`** and **\`else\`** let your program make choices based on boolean conditions.\n\n### Indentation is Crucial!\nPython uses indentation (4 spaces) instead of brackets. If your code isn't indented, Python gives an **\`IndentationError\`**!\n\n\`\`\`python
+      explanation: `# Conditionals & Debugging in Python 🐍\n\nIn Python, **\`if\`** and **\`else\`** let your program make choices based on boolean conditions.\n\n### Indentation is Crucial!\nPython uses indentation (4 spaces) instead of brackets. If your code isn't indented, Python gives an **\`IndentationError\`**!\n\n\`\`\`python
 score = 85
 if score >= 70:
     print("Quest Passed! ⭐")
@@ -1301,7 +1301,7 @@ print("Total sum:", total) # 60
       orderIndex: 3,
       title: 'Python: Functions & Mini-Project Calculator 🏗️',
       language: 'python',
-      explanation: `# Functions & Mini-Project: Smart Calculator! 🏗️ (Recommendation #10 & #12)\n\nA **function** is a reusable block of code defined with \`def\`.\n\nGood documentation includes a **docstring** (\`"""..."""\`) explaining what the function does (Recommendation #12):\n\n\`\`\`python
+      explanation: `# Functions & Mini-Project: Smart Calculator! 🏗️\n\nA **function** is a reusable block of code defined with \`def\`.\n\nGood documentation includes a **docstring** (\`"""..."""\`) explaining what the function does:\n\n\`\`\`python
 def calculate_loot(chests, coins_per_chest):
     """Calculates total coins found across chests."""
     return chests * coins_per_chest
@@ -1367,7 +1367,7 @@ print(add(15, 20)) # 35
       orderIndex: 4,
       title: 'JavaScript: If/Else & Debug Detective 🔍🐞',
       language: 'javascript',
-      explanation: `# Conditionals & Bug Hunting in JavaScript ⚡ (Recommendation #9)\n\nIn JavaScript, we write conditionals with parentheses and curly braces:\n\n\`\`\`javascript
+      explanation: `# Conditionals & Bug Hunting in JavaScript ⚡\n\nIn JavaScript, we write conditionals with parentheses and curly braces:\n\n\`\`\`javascript
 let energy = 75;
 if (energy >= 50) {
     console.log("Ready to battle!");
@@ -1483,7 +1483,7 @@ console.log(sum); // 6
       orderIndex: 6,
       title: 'JavaScript: Functions & Mini-Project Calculator 🏗️',
       language: 'javascript',
-      explanation: `# Functions & JSDoc Documentation! ⚡ (Recommendation #10 & #12)\n\nIn JavaScript, functions group reusable code. We can document them using **JSDoc comments**:\n\n\`\`\`javascript
+      explanation: `# Functions & JSDoc Documentation! ⚡\n\nIn JavaScript, functions group reusable code. We can document them using **JSDoc comments**:\n\n\`\`\`javascript
 /**
  * Multiplies energy by bonus multiplier.
  * @param {number} energy 
@@ -1552,7 +1552,7 @@ console.log(calculateScore(3, 15)); // 45
       orderIndex: 7,
       title: 'Java: If/Else & The Bug Detective 🔍🐞',
       language: 'java',
-      explanation: `# Conditionals & Debugging in Java ☕ (Recommendation #9)\n\nIn Java, **if** statements test boolean conditions:\n\n\`\`\`java
+      explanation: `# Conditionals & Debugging in Java ☕\n\nIn Java, **if** statements test boolean conditions:\n\n\`\`\`java
 int shield = 80;
 if (shield >= 50) {
     System.out.println("Shield Healthy");
@@ -1676,7 +1676,7 @@ public class Main {
       orderIndex: 9,
       title: 'Java: Methods & Mini-Project Calculator 🏗️',
       language: 'java',
-      explanation: `# Methods & Javadoc in Java ☕ (Recommendation #10 & #12)\n\nIn Java, functions are called **methods**. Methods inside \`Main\` are defined with \`static\`:\n\n\`\`\`java
+      explanation: `# Methods & Javadoc in Java ☕\n\nIn Java, functions are called **methods**. Methods inside \`Main\` are defined with \`static\`:\n\n\`\`\`java
 /**
  * Calculates total crystals given bags and crystals per bag.
  */

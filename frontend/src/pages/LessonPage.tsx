@@ -407,41 +407,81 @@ export default function LessonPage() {
         .replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>');
     };
 
-    const highlightPythonHtml = (code: string): string => {
+    const highlightPythonHtml = (code: string, lang?: string): string => {
       const escapeHtml = (str: string) =>
         str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+      const detectedLang = (lang || 'python').toLowerCase();
+
+      const pythonKeywords = [
+        'def', 'class', 'if', 'elif', 'else', 'for', 'while', 'in', 'return', 'import',
+        'from', 'as', 'True', 'False', 'None', 'and', 'or', 'not', 'is', 'try',
+        'except', 'pass', 'break', 'continue', 'lambda', 'with', 'global', 'range'
+      ];
+      const jsKeywords = [
+        'function', 'let', 'const', 'var', 'if', 'else', 'for', 'while', 'do',
+        'return', 'import', 'export', 'default', 'class', 'extends', 'true', 'false',
+        'null', 'undefined', 'new', 'this', 'typeof', 'try', 'catch', 'finally',
+        'switch', 'case', 'break', 'continue', 'async', 'await'
+      ];
+      const javaKeywords = [
+        'public', 'private', 'protected', 'class', 'static', 'void', 'int', 'double',
+        'float', 'boolean', 'char', 'String', 'if', 'else', 'for', 'while', 'return',
+        'new', 'this', 'true', 'false', 'null', 'final', 'package', 'import', 'main'
+      ];
+      const builtinFns = ['print', 'console', 'log', 'System', 'out', 'println', 'append', 'push', 'len', 'length'];
+
+      const keywords = detectedLang === 'python' || detectedLang === 'py' ? pythonKeywords
+        : detectedLang === 'javascript' || detectedLang === 'js' ? jsKeywords
+        : javaKeywords;
+
+      const commentChar = (detectedLang === 'python' || detectedLang === 'py') ? '#' : '//';
 
       return code
         .split('\n')
         .map(line => {
-          const commentIdx = line.indexOf('#');
+          if (!line) return '&nbsp;';
+
+          // Split on comment
+          const commentIdx = line.indexOf(commentChar);
           const codePart = commentIdx >= 0 ? line.slice(0, commentIdx) : line;
           const commentPart = commentIdx >= 0 ? line.slice(commentIdx) : '';
 
-          let escaped = escapeHtml(codePart);
+          // Tokenize the code part using a safe regex-based tokenizer
+          const tokenRegex = /(["'`])(?:(?=(\\?))\2[\s\S])*?\1|\b\d+(?:\.\d+)?\b|\b[a-zA-Z_]\w*\b|[+\-*/%=!<>]=?|&&|\|\||[{}()\[\],;:]|\s+/g;
+          let result = '';
+          let match;
+          let lastIndex = 0;
 
-          // Strings
-          escaped = escaped.replace(/(["'])(?:(?=(\\?))\2.)*?\1/g, '<span class="code-str">$&</span>');
+          while ((match = tokenRegex.exec(codePart)) !== null) {
+            if (match.index > lastIndex) {
+              result += escapeHtml(codePart.slice(lastIndex, match.index));
+            }
+            const token = match[0];
+            const isString = /^["'`]/.test(token);
+            const isNumber = /^\d+(?:\.\d+)?$/.test(token);
 
-          // Keywords
-          escaped = escaped.replace(
-            /\b(def|return|if|elif|else|for|while|in|range|True|False|None|and|or|not|print|pass|import|from|class)\b/g,
-            '<span class="code-kw">$1</span>'
-          );
-
-          // Robot object & calls
-          escaped = escaped.replace(/\brobot\.([a-zA-Z_]\w*)/g, '<span class="code-obj">robot</span>.<span class="code-fn">$1</span>');
-
-          // Function calls
-          escaped = escaped.replace(/\b([a-zA-Z_]\w*)(?=\s*\()/g, '<span class="code-fn">$1</span>');
-
-          // Numbers
-          escaped = escaped.replace(/\b(\d+)\b/g, '<span class="code-num">$1</span>');
+            if (isString) {
+              result += `<span class="code-str">${escapeHtml(token)}</span>`;
+            } else if (isNumber) {
+              result += `<span class="code-num">${escapeHtml(token)}</span>`;
+            } else if (keywords.includes(token)) {
+              result += `<span class="code-kw">${escapeHtml(token)}</span>`;
+            } else if (builtinFns.includes(token)) {
+              result += `<span class="code-fn">${escapeHtml(token)}</span>`;
+            } else {
+              result += escapeHtml(token);
+            }
+            lastIndex = tokenRegex.lastIndex;
+          }
+          if (lastIndex < codePart.length) {
+            result += escapeHtml(codePart.slice(lastIndex));
+          }
 
           if (commentPart) {
-            return escaped + `<span class="code-com">${escapeHtml(commentPart)}</span>`;
+            result += `<span class="code-com">${escapeHtml(commentPart)}</span>`;
           }
-          return escaped;
+          return result;
         })
         .join('\n');
     };
@@ -474,7 +514,7 @@ export default function LessonPage() {
         }
 
         const rawCode = codeLines.join('\n');
-        const highlighted = highlightPythonHtml(rawCode);
+        const highlighted = highlightPythonHtml(rawCode, lang);
         const langLower = (lang || 'code').toLowerCase();
         const langIcon = langLower === 'python' || langLower === 'py' ? '🐍' :
                          langLower === 'javascript' || langLower === 'js' ? '⚡' :

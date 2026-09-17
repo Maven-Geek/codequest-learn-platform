@@ -330,23 +330,137 @@ export default function CodeEditor({
     }
   };
 
-  // Python simulated execution fallback
+  // Python simulated execution fallback — resolves variable assignments and prints
   const simulatePythonOutput = (source: string): string => {
     const logs: string[] = [];
-    const printMatches = source.matchAll(/print\s*\((.*?)\)/g);
-    for (const match of printMatches) {
-      let content = match[1].trim();
-      // Remove outer quotes if plain string
-      if (/^["'].*["']$/.test(content)) {
-        logs.push(content.slice(1, -1));
-      } else {
-        logs.push(content);
+    const vars: Record<string, any> = {};
+    const sourceLines = source.split('\n');
+
+    // Helper to evaluate simple expressions against known variables
+    const resolveExpr = (expr: string): any => {
+      expr = expr.trim();
+      // String literal
+      if (/^["'](.*)["']$/.test(expr)) return expr.slice(1, -1);
+      // Boolean / None
+      if (expr === 'True') return true;
+      if (expr === 'False') return false;
+      if (expr === 'None') return 'None';
+      // Number
+      if (/^-?\d+(\.\d+)?$/.test(expr)) return parseFloat(expr);
+      // List literal
+      if (expr.startsWith('[') && expr.endsWith(']')) {
+        const inner = expr.slice(1, -1);
+        if (!inner.trim()) return [];
+        return inner.split(',').map(s => resolveExpr(s.trim()));
+      }
+      // Dict literal (basic)
+      if (expr.startsWith('{') && expr.endsWith('}')) return expr;
+      // len(x)
+      const lenMatch = expr.match(/^len\s*\(\s*(\w+)\s*\)$/);
+      if (lenMatch && vars[lenMatch[1]] !== undefined) {
+        const val = vars[lenMatch[1]];
+        return Array.isArray(val) ? val.length : String(val).length;
+      }
+      // Variable index: x[0]
+      const indexMatch = expr.match(/^(\w+)\[(\d+)\]$/);
+      if (indexMatch && vars[indexMatch[1]] !== undefined) {
+        const arr = vars[indexMatch[1]];
+        if (Array.isArray(arr)) return arr[parseInt(indexMatch[2])];
+      }
+      // Dict access: x["key"]
+      const dictMatch = expr.match(/^(\w+)\[["'](.+?)["']\]$/);
+      if (dictMatch && vars[dictMatch[1]] !== undefined) {
+        const obj = vars[dictMatch[1]];
+        if (typeof obj === 'object' && obj !== null) return obj[dictMatch[2]];
+      }
+      // Simple arithmetic: a + b, a * b, a - b, a / b
+      const arithMatch = expr.match(/^(.+?)\s*([+\-*/])\s*(.+)$/);
+      if (arithMatch) {
+        const left = resolveExpr(arithMatch[1]);
+        const right = resolveExpr(arithMatch[3]);
+        const op = arithMatch[2];
+        if (typeof left === 'number' && typeof right === 'number') {
+          if (op === '+') return left + right;
+          if (op === '-') return left - right;
+          if (op === '*') return left * right;
+          if (op === '/') return left / right;
+        }
+        if (typeof left === 'string' && typeof right === 'string' && op === '+') return left + right;
+      }
+      // f-string: f"...{var}..."
+      const fstrMatch = expr.match(/^f["'](.*)["']$/);
+      if (fstrMatch) {
+        return fstrMatch[1].replace(/\{([^}]+)\}/g, (_, v) => {
+          const resolved = resolveExpr(v.trim());
+          return resolved !== undefined ? String(resolved) : v;
+        });
+      }
+      // Plain variable
+      if (vars[expr] !== undefined) return vars[expr];
+      return expr;
+    };
+
+    for (const line of sourceLines) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#') || trimmed.startsWith('"""') || trimmed.startsWith("def ")) continue;
+
+      // Variable assignment: x = value
+      const assignMatch = trimmed.match(/^(\w+)\s*=\s*(.+)$/);
+      if (assignMatch && !trimmed.startsWith('print')) {
+        vars[assignMatch[1]] = resolveExpr(assignMatch[2]);
+        continue;
+      }
+
+      // List append: x.append(val)
+      const appendMatch = trimmed.match(/^(\w+)\.append\s*\(\s*(.+?)\s*\)$/);
+      if (appendMatch && Array.isArray(vars[appendMatch[1]])) {
+        vars[appendMatch[1]].push(resolveExpr(appendMatch[2]));
+        continue;
+      }
+
+      // Dict key set: x["key"] = val
+      const dictSetMatch = trimmed.match(/^(\w+)\[["'](.+?)["']\]\s*=\s*(.+)$/);
+      if (dictSetMatch && typeof vars[dictSetMatch[1]] === 'object') {
+        vars[dictSetMatch[1]][dictSetMatch[2]] = resolveExpr(dictSetMatch[3]);
+        continue;
+      }
+
+      // print() calls
+      const printMatch = trimmed.match(/^print\s*\((.+)\)$/);
+      if (printMatch) {
+        const args = printMatch[1];
+        // Handle print("str", var) multi-arg with comma
+        if (args.includes(',')) {
+          const parts = [];
+          let depth = 0;
+          let current = '';
+          for (const ch of args) {
+            if (ch === '(' || ch === '[' || ch === '{') depth++;
+            if (ch === ')' || ch === ']' || ch === '}') depth--;
+            if (ch === ',' && depth === 0) {
+              parts.push(current.trim());
+              current = '';
+            } else {
+              current += ch;
+            }
+          }
+          parts.push(current.trim());
+          const resolved = parts.map(p => String(resolveExpr(p)));
+          logs.push(resolved.join(' '));
+        } else {
+          const val = resolveExpr(args);
+          if (Array.isArray(val)) {
+            logs.push(JSON.stringify(val).replace(/,/g, ', '));
+          } else {
+            logs.push(String(val));
+          }
+        }
       }
     }
     return logs.length > 0 ? logs.join('\n') : (expectedOutput || 'Program finished.');
   };
 
-  // Java simulated execution runner
+  // Java simulated execution runner — resolves variable declarations and prints
   const simulateJavaOutput = (source: string): string => {
     // Check for basic compile errors (missing semicolon, mismatched braces)
     const openBraces = (source.match(/{/g) || []).length;
@@ -355,15 +469,104 @@ export default function CodeEditor({
       throw new Error(`Java Syntax Error: Mismatched curly braces { }. Found ${openBraces} '{' and ${closeBraces} '}'.`);
     }
 
+    const vars: Record<string, any> = {};
     const logs: string[] = [];
-    const printRegex = /System\.out\.println\s*\((.*?)\);/g;
-    let match;
-    while ((match = printRegex.exec(source)) !== null) {
-      let expr = match[1].trim();
-      if (/^["'].*["']$/.test(expr)) {
-        logs.push(expr.slice(1, -1));
-      } else {
-        logs.push(expr);
+
+    const resolveExpr = (expr: string): any => {
+      expr = expr.trim();
+      // String literal
+      if (/^"(.*)"$/.test(expr)) return expr.slice(1, -1);
+      // Number
+      if (/^-?\d+(\.\d+)?$/.test(expr)) return parseFloat(expr);
+      // Boolean
+      if (expr === 'true') return true;
+      if (expr === 'false') return false;
+      // Array index: arr[0]
+      const indexMatch = expr.match(/^(\w+)\[(\d+)\]$/);
+      if (indexMatch && vars[indexMatch[1]] !== undefined) {
+        const arr = vars[indexMatch[1]];
+        if (Array.isArray(arr)) return arr[parseInt(indexMatch[2])];
+      }
+      // Array length: arr.length
+      const lenMatch = expr.match(/^(\w+)\.length$/);
+      if (lenMatch && vars[lenMatch[1]] !== undefined) {
+        const val = vars[lenMatch[1]];
+        return Array.isArray(val) ? val.length : 0;
+      }
+      // Math.max(a, b)
+      const mathMaxMatch = expr.match(/^Math\.max\s*\(\s*(.+?)\s*,\s*(.+?)\s*\)$/);
+      if (mathMaxMatch) {
+        const a = resolveExpr(mathMaxMatch[1]);
+        const b = resolveExpr(mathMaxMatch[2]);
+        if (typeof a === 'number' && typeof b === 'number') return Math.max(a, b);
+      }
+      // String concatenation with +: "text" + var
+      if (expr.includes('+')) {
+        const parts = expr.split('+').map(p => resolveExpr(p.trim()));
+        const hasString = parts.some(p => typeof p === 'string');
+        if (hasString) return parts.map(p => String(p)).join('');
+        if (parts.every(p => typeof p === 'number')) return (parts as number[]).reduce((a, b) => a + b, 0);
+      }
+      // Simple arithmetic: a * b, a - b, a / b
+      const arithMatch = expr.match(/^(.+?)\s*([*\-/])\s*(.+)$/);
+      if (arithMatch) {
+        const left = resolveExpr(arithMatch[1]);
+        const right = resolveExpr(arithMatch[3]);
+        const op = arithMatch[2];
+        if (typeof left === 'number' && typeof right === 'number') {
+          if (op === '*') return left * right;
+          if (op === '-') return left - right;
+          if (op === '/') return Math.trunc(left / right);
+        }
+      }
+      // Variable reference
+      if (vars[expr] !== undefined) return vars[expr];
+      return expr;
+    };
+
+    const sourceLines = source.split('\n');
+    for (const line of sourceLines) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('//') || trimmed.startsWith('/*') ||
+          trimmed.startsWith('public class') || trimmed.startsWith('public static void main') ||
+          trimmed === '{' || trimmed === '}') continue;
+
+      // Method declarations (skip for simulation)
+      if (/^public\s+static\s+\w+\s+\w+\s*\(/.test(trimmed) && !trimmed.includes('main')) continue;
+
+      // Variable declaration with type: int x = 5;
+      const declMatch = trimmed.match(/^(?:String|int|double|float|boolean|char|String\[\]|int\[\]|double\[\])\s+(\w+)\s*=\s*(.+?)\s*;$/);
+      if (declMatch) {
+        const name = declMatch[1];
+        const valueExpr = declMatch[2].trim();
+        // Array initializer: {1, 2, 3}
+        if (valueExpr.startsWith('{') && valueExpr.endsWith('}')) {
+          const inner = valueExpr.slice(1, -1);
+          vars[name] = inner.split(',').map(s => resolveExpr(s.trim()));
+        } else {
+          vars[name] = resolveExpr(valueExpr);
+        }
+        continue;
+      }
+
+      // Variable reassignment: x = val; or x[i] = val;
+      const reassignMatch = trimmed.match(/^(\w+)\s*=\s*(.+?)\s*;$/);
+      if (reassignMatch && !trimmed.startsWith('System') && !trimmed.startsWith('return')) {
+        vars[reassignMatch[1]] = resolveExpr(reassignMatch[2]);
+        continue;
+      }
+      // Array element reassignment: x[i] = val;
+      const arrReassign = trimmed.match(/^(\w+)\[(\d+)\]\s*=\s*(.+?)\s*;$/);
+      if (arrReassign && Array.isArray(vars[arrReassign[1]])) {
+        vars[arrReassign[1]][parseInt(arrReassign[2])] = resolveExpr(arrReassign[3]);
+        continue;
+      }
+
+      // System.out.println
+      const printMatch = trimmed.match(/System\.out\.println\s*\((.*?)\)\s*;/);
+      if (printMatch) {
+        const val = resolveExpr(printMatch[1]);
+        logs.push(String(val));
       }
     }
 

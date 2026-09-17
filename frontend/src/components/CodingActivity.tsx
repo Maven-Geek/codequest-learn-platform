@@ -59,10 +59,11 @@ export default function CodingActivity({
 
     // Check validation regex patterns if provided
     if (activity.validationPatterns && activity.validationPatterns.length > 0) {
-      for (const pattern of activity.validationPatterns) {
+      for (let pi = 0; pi < activity.validationPatterns.length; pi++) {
+        const pattern = activity.validationPatterns[pi];
         const regex = new RegExp(pattern, 'm');
         if (!regex.test(code)) {
-          errors.push(`Requirement not met: expected syntax matching pattern.`);
+          errors.push(`Step ${pi + 1} not complete: check your code matches the required syntax.`);
         }
       }
     }
