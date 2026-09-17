@@ -4,7 +4,7 @@
 // Language Switcher, Daily Streak, and Playground shortcuts
 // ============================================================
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
@@ -23,6 +23,19 @@ export default function LevelMapPage() {
   const [summary, setSummary] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const lessonsSectionRef = useRef<HTMLDivElement>(null);
+
+  // Smooth scroll to lessons section whenever a level is selected
+  useEffect(() => {
+    if (selectedLevel) {
+      const timer = setTimeout(() => {
+        if (lessonsSectionRef.current) {
+          lessonsSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 60);
+      return () => clearTimeout(timer);
+    }
+  }, [selectedLevel?.id]);
 
   useEffect(() => {
     loadData(selectedLanguage);
@@ -272,6 +285,7 @@ export default function LevelMapPage() {
               const isCurrent = (level.is_unlocked || isAllUnlocked) && !isCompleted;
               const isLocked = !level.is_unlocked && !isAllUnlocked;
               const isCodingLevel = level.order_index >= 5;
+              const isSelected = selectedLevel?.id === level.id;
 
               return (
                 <div
@@ -284,7 +298,7 @@ export default function LevelMapPage() {
                       : isLocked
                       ? 'locked'
                       : 'unlocked'
-                  } ${isCodingLevel ? 'level-node-coding' : ''}`}
+                  } ${isCodingLevel ? 'level-node-coding' : ''} ${isSelected ? 'selected' : ''}`}
                   onClick={() => selectLevel(level)}
                   style={{ cursor: (level.is_unlocked || isAllUnlocked) ? 'pointer' : 'not-allowed' }}
                 >
@@ -328,7 +342,7 @@ export default function LevelMapPage() {
 
         {/* Lessons List */}
         {selectedLevel && (
-          <div>
+          <div ref={lessonsSectionRef} style={{ scrollMarginTop: '80px' }}>
             <div className="flex-between mb-md">
               <h2 style={{ fontFamily: 'var(--font-display)', margin: 0 }}>
                 {selectedLevel.icon_emoji} {selectedLevel.title} — Lessons
