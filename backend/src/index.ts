@@ -54,7 +54,8 @@ async function start() {
       console.log(`\n🚀 CodeQuest API running at http://localhost:${PORT}`);
       console.log(`📚 Health check: http://localhost:${PORT}/api/health`);
       console.log(`\n📋 Demo accounts:`);
-      console.log(`   Admin:   admin / admin123`);
+      console.log(`   Tester:  tester / tester123 (All Lessons Unlocked 🔓)`);
+      console.log(`   Admin:   admin / admin123 (All Lessons Unlocked 🔓)`);
       console.log(`   Learner: coder_kid / learn123`);
       console.log(`   Parent:  parent1 / parent123`);
       console.log(`   Teacher: teacher1 / teach123\n`);

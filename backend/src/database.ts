@@ -47,6 +47,7 @@ export async function initializeDatabase(): Promise<void> {
       enrollment_key TEXT UNIQUE,
       parent_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
       teacher_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      all_lessons_unlocked BOOLEAN DEFAULT false,
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
 
@@ -149,6 +150,38 @@ export async function initializeDatabase(): Promise<void> {
 
   // Ensure multi-language coding curriculum (Levels 5-7), badges, challenges & snippets exist
   await ensureCodingCurriculumExists(query);
+
+  // Ensure all-access tester account and admin bypass exist
+  await ensureAllAccessAccountExists();
+}
+
+// ---- Ensure All-Access Tester & Admin Account Setup ----
+export async function ensureAllAccessAccountExists(): Promise<void> {
+  try {
+    // 1. Migration: add all_lessons_unlocked column if missing
+    await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS all_lessons_unlocked BOOLEAN DEFAULT false`);
+
+    // 2. Ensure admin accounts have all_lessons_unlocked = true
+    await query(`UPDATE users SET all_lessons_unlocked = true WHERE role = 'admin'`);
+
+    // 3. Ensure dedicated all-access tester account exists
+    const testerCheck = await query(`SELECT id FROM users WHERE username = 'tester'`);
+    if (testerCheck.rows.length === 0) {
+      console.log('🔓 Creating dedicated all-access tester account (tester / tester123)...');
+      const testerPasswordHash = bcrypt.hashSync('tester123', 10);
+      const enrollmentKey = generateEnrollmentKey();
+      await query(
+        `INSERT INTO users (username, email, password_hash, role, display_name, avatar_url, enrollment_key, all_lessons_unlocked)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        ['tester', 'tester@codequest.com', testerPasswordHash, 'learner', 'Test Explorer 🔓', '⚡', enrollmentKey, true]
+      );
+      console.log('✅ Created all-access account: tester / tester123 (role: learner, all lessons unlocked)');
+    } else {
+      await query(`UPDATE users SET all_lessons_unlocked = true WHERE username = 'tester'`);
+    }
+  } catch (e) {
+    console.error('Failed to ensure all-access account:', e);
+  }
 }
 
 // ---- Level 4 Migration & Setup ----
@@ -1757,19 +1790,26 @@ export async function seedDatabase(): Promise<void> {
 
   // ---- Default Users ----
   const adminPasswordHash = bcrypt.hashSync('admin123', 10);
+  const testerPasswordHash = bcrypt.hashSync('tester123', 10);
   const learnerPasswordHash = bcrypt.hashSync('learn123', 10);
   const parentPasswordHash = bcrypt.hashSync('parent123', 10);
   const teacherPasswordHash = bcrypt.hashSync('teach123', 10);
 
   await query(
-    `INSERT INTO users (username, email, password_hash, role, display_name, avatar_url) VALUES ($1, $2, $3, $4, $5, $6)`,
-    ['admin', 'admin@codequest.com', adminPasswordHash, 'admin', 'Admin', '👑']
+    `INSERT INTO users (username, email, password_hash, role, display_name, avatar_url, all_lessons_unlocked) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+    ['admin', 'admin@codequest.com', adminPasswordHash, 'admin', 'Admin', '👑', true]
+  );
+
+  const testerEnrollmentKey = generateEnrollmentKey();
+  await query(
+    `INSERT INTO users (username, email, password_hash, role, display_name, avatar_url, enrollment_key, all_lessons_unlocked) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+    ['tester', 'tester@codequest.com', testerPasswordHash, 'learner', 'Test Explorer 🔓', '⚡', testerEnrollmentKey, true]
   );
 
   const learnerEnrollmentKey = generateEnrollmentKey();
   await query(
-    `INSERT INTO users (username, email, password_hash, role, display_name, avatar_url, enrollment_key) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-    ['coder_kid', 'kid@codequest.com', learnerPasswordHash, 'learner', 'Coder Kid', '🤖', learnerEnrollmentKey]
+    `INSERT INTO users (username, email, password_hash, role, display_name, avatar_url, enrollment_key, all_lessons_unlocked) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+    ['coder_kid', 'kid@codequest.com', learnerPasswordHash, 'learner', 'Coder Kid', '🤖', learnerEnrollmentKey, false]
   );
   await query(
     `INSERT INTO users (username, email, password_hash, role, display_name, avatar_url) VALUES ($1, $2, $3, $4, $5, $6)`,

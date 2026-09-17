@@ -50,6 +50,7 @@ export default function Sidebar() {
       case 'admin':
         return [
           { to: '/admin', icon: '📊', label: 'Dashboard' },
+          { to: '/learn', icon: '🗺️', label: 'Quest Map (All Access)' },
           { to: '/admin/lessons', icon: '📚', label: 'Classroom' },
           { to: '/admin/users', icon: '👥', label: 'Reports' },
         ];

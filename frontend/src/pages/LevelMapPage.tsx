@@ -13,6 +13,7 @@ import { CodingLanguage } from '../../../shared/src/types';
 
 export default function LevelMapPage() {
   const { user, updatePreferredLanguage } = useAuth();
+  const isAllUnlocked = Boolean(user?.all_lessons_unlocked || user?.role === 'admin');
   const [selectedLanguage, setSelectedLanguage] = useState<CodingLanguage>(
     user?.preferred_coding_language || 'python'
   );
@@ -56,7 +57,7 @@ export default function LevelMapPage() {
   };
 
   const selectLevel = async (level: any) => {
-    if (!level.is_unlocked) return;
+    if (!level.is_unlocked && !isAllUnlocked) return;
     setSelectedLevel(level);
     try {
       const res = await api.getLevelLessons(level.id, selectedLanguage);
@@ -95,6 +96,24 @@ export default function LevelMapPage() {
               >
                 Ready for an adventure, {user?.display_name || 'Explorer'}? 🚀
               </h2>
+              {isAllUnlocked && (
+                <div
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    background: 'rgba(255, 255, 255, 0.25)',
+                    border: '1px solid rgba(255, 255, 255, 0.4)',
+                    padding: '4px 12px',
+                    borderRadius: 'var(--radius-pill)',
+                    fontSize: '0.85rem',
+                    fontWeight: 600,
+                    marginBottom: 'var(--space-md)',
+                  }}
+                >
+                  🔓 All Lessons Unlocked (All-Access Mode)
+                </div>
+              )}
               <p style={{ opacity: 0.9, marginBottom: 'var(--space-lg)', maxWidth: '500px' }}>
                 Master block coding foundations and level up to real code in <strong>Python</strong>, <strong>JavaScript</strong>, or <strong>Java</strong>!
               </p>
@@ -250,8 +269,8 @@ export default function LevelMapPage() {
             {levels.map((level) => {
               const isCompleted =
                 level.completed_count >= level.lesson_count && level.lesson_count > 0;
-              const isCurrent = level.is_unlocked && !isCompleted;
-              const isLocked = !level.is_unlocked;
+              const isCurrent = (level.is_unlocked || isAllUnlocked) && !isCompleted;
+              const isLocked = !level.is_unlocked && !isAllUnlocked;
               const isCodingLevel = level.order_index >= 5;
 
               return (
@@ -267,7 +286,7 @@ export default function LevelMapPage() {
                       : 'unlocked'
                   } ${isCodingLevel ? 'level-node-coding' : ''}`}
                   onClick={() => selectLevel(level)}
-                  style={{ cursor: level.is_unlocked ? 'pointer' : 'not-allowed' }}
+                  style={{ cursor: (level.is_unlocked || isAllUnlocked) ? 'pointer' : 'not-allowed' }}
                 >
                   <div className="level-node-icon">
                     {isCompleted ? '✅' : level.icon_emoji}
@@ -324,7 +343,7 @@ export default function LevelMapPage() {
             <div className="lesson-list">
               {lessons.map((lesson, index) => {
                 const isCoding = selectedLevel.order_index >= 5 || lesson.activity_type === 'coding';
-                const isAccessible = isCoding || index === 0 || lessons[index - 1]?.is_completed;
+                const isAccessible = isAllUnlocked || isCoding || index === 0 || lessons[index - 1]?.is_completed;
                 const isNext = isAccessible && !lesson.is_completed;
 
                 return (

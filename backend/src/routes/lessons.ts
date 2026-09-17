@@ -13,9 +13,12 @@ router.get('/levels', authMiddleware, async (req: Request, res: Response) => {
   try {
     const userId = req.user!.userId;
 
-    // Get user's preferred coding language if not passed via query
-    const userRes = await query('SELECT preferred_coding_language FROM users WHERE id = $1', [userId]);
+    const userRole = req.user!.role;
+
+    // Get user's preferred coding language and all_lessons_unlocked flag
+    const userRes = await query('SELECT preferred_coding_language, all_lessons_unlocked FROM users WHERE id = $1', [userId]);
     const lang = (req.query.language as string) || userRes.rows[0]?.preferred_coding_language || 'python';
+    const allUnlocked = userRole === 'admin' || Boolean(userRes.rows[0]?.all_lessons_unlocked);
 
     const result = await query(`
       SELECT l.*,
@@ -31,8 +34,8 @@ router.get('/levels', authMiddleware, async (req: Request, res: Response) => {
     const levels = result.rows;
     const levelsWithAccess = levels.map((level: any, index: number) => {
       let is_unlocked = false;
-      // Level 1 and coding levels (5+) are unlocked without prerequisite!
-      if (index === 0 || level.order_index === 1 || level.order_index >= 5) {
+      // All levels unlocked if allUnlocked is true, or Level 1 / coding levels (5+) without prerequisite!
+      if (allUnlocked || index === 0 || level.order_index === 1 || level.order_index >= 5) {
         is_unlocked = true;
       } else {
         const prevLevel = levels[index - 1] as any;
@@ -41,7 +44,7 @@ router.get('/levels', authMiddleware, async (req: Request, res: Response) => {
       return { ...level, is_unlocked };
     });
 
-    res.json({ success: true, data: levelsWithAccess, current_language: lang });
+    res.json({ success: true, data: levelsWithAccess, current_language: lang, all_unlocked: allUnlocked });
   } catch (error: any) {
     console.error('Get levels error:', error);
     res.status(500).json({ success: false, error: 'Failed to fetch levels' });
@@ -374,8 +377,10 @@ router.get('/levels/:id/lessons', authMiddleware, async (req: Request, res: Resp
     const levelId = req.params.id;
     const userId = req.user!.userId;
 
-    const userRes = await query('SELECT preferred_coding_language FROM users WHERE id = $1', [userId]);
+    const userRole = req.user!.role;
+    const userRes = await query('SELECT preferred_coding_language, all_lessons_unlocked FROM users WHERE id = $1', [userId]);
     const lang = (req.query.language as string) || userRes.rows[0]?.preferred_coding_language || 'python';
+    const allUnlocked = userRole === 'admin' || Boolean(userRes.rows[0]?.all_lessons_unlocked);
 
     const result = await query(`
       SELECT les.*,
@@ -399,11 +404,12 @@ router.get('/levels/:id/lessons', authMiddleware, async (req: Request, res: Resp
         ...l,
         example,
         activity_data: normalizeLessonActivityData(l),
-        is_completed: !!l.is_completed
+        is_completed: !!l.is_completed,
+        is_accessible: allUnlocked || undefined
       };
     });
 
-    res.json({ success: true, data: parsed });
+    res.json({ success: true, data: parsed, all_unlocked: allUnlocked });
   } catch (error: any) {
     console.error('Get lessons error:', error);
     res.status(500).json({ success: false, error: 'Failed to fetch lessons' });

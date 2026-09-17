@@ -112,7 +112,8 @@ Now that you have your Vercel URL, go back to Render and update the environment 
 
 1. Visit your Vercel URL in a browser
 2. Try logging in with a demo account:
-   - **Admin:** `admin` / `admin123`
+   - **Tester (All Access 🔓):** `tester` / `tester123` (Access any lesson without completing previous ones)
+   - **Admin:** `admin` / `admin123` (All lessons unlocked + admin controls)
    - **Learner:** `coder_kid` / `learn123`
    - **Parent:** `parent1` / `parent123`
    - **Teacher:** `teacher1` / `teach123`

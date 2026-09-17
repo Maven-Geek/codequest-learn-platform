@@ -20,6 +20,7 @@ export interface User {
   preferred_coding_language?: CodingLanguage;
   coding_streak_count?: number;
   last_coding_streak_date?: string | null;
+  all_lessons_unlocked?: boolean;
   created_at: string;
 }
 

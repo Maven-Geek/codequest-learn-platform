@@ -13,7 +13,7 @@ const router = Router();
 router.get('/', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
   try {
     const result = await query(
-      'SELECT id, username, email, role, display_name, avatar_url, enrollment_key, parent_id, teacher_id, created_at FROM users ORDER BY created_at DESC'
+      'SELECT id, username, email, role, display_name, avatar_url, enrollment_key, parent_id, teacher_id, all_lessons_unlocked, created_at FROM users ORDER BY created_at DESC'
     );
 
     res.json({ success: true, data: result.rows });
@@ -59,7 +59,7 @@ router.get('/children', authMiddleware, async (req: Request, res: Response) => {
 router.get('/me', authMiddleware, async (req: Request, res: Response) => {
   try {
     const result = await query(
-      'SELECT id, username, email, role, display_name, avatar_url, enrollment_key, parent_id, teacher_id, preferred_coding_language, coding_streak_count, last_coding_streak_date, created_at FROM users WHERE id = $1',
+      'SELECT id, username, email, role, display_name, avatar_url, enrollment_key, parent_id, teacher_id, preferred_coding_language, coding_streak_count, last_coding_streak_date, all_lessons_unlocked, created_at FROM users WHERE id = $1',
       [req.user!.userId]
     );
 
@@ -79,9 +79,9 @@ router.get('/me', authMiddleware, async (req: Request, res: Response) => {
 router.put('/:id', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
   try {
     const userId = req.params.id;
-    const { email, role, display_name, avatar_url, parent_id, teacher_id, password } = req.body;
+    const { email, role, display_name, avatar_url, parent_id, teacher_id, password, all_lessons_unlocked } = req.body;
 
-    const existing = await query('SELECT id, role FROM users WHERE id = $1', [userId]);
+    const existing = await query('SELECT id, role, all_lessons_unlocked FROM users WHERE id = $1', [userId]);
     if (existing.rows.length === 0) {
       res.status(404).json({ success: false, error: 'User not found' });
       return;
@@ -95,6 +95,7 @@ router.put('/:id', authMiddleware, requireRole('admin'), async (req: Request, re
     const targetRole = role || existing.rows[0].role;
     const finalParentId = targetRole === 'learner' ? (parent_id || null) : null;
     const finalTeacherId = targetRole === 'learner' ? (teacher_id || null) : null;
+    const finalAllUnlocked = all_lessons_unlocked !== undefined ? all_lessons_unlocked : existing.rows[0].all_lessons_unlocked;
 
     await query(`
       UPDATE users SET
@@ -103,12 +104,13 @@ router.put('/:id', authMiddleware, requireRole('admin'), async (req: Request, re
         display_name = COALESCE($3, display_name),
         avatar_url = COALESCE($4, avatar_url),
         parent_id = $5,
-        teacher_id = $6
-      WHERE id = $7
-    `, [email, role, display_name, avatar_url, finalParentId, finalTeacherId, userId]);
+        teacher_id = $6,
+        all_lessons_unlocked = $7
+      WHERE id = $8
+    `, [email, role, display_name, avatar_url, finalParentId, finalTeacherId, finalAllUnlocked, userId]);
 
     const updated = await query(
-      'SELECT id, username, email, role, display_name, avatar_url, parent_id, teacher_id, created_at FROM users WHERE id = $1',
+      'SELECT id, username, email, role, display_name, avatar_url, parent_id, teacher_id, all_lessons_unlocked, created_at FROM users WHERE id = $1',
       [userId]
     );
 
