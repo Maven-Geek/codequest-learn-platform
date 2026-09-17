@@ -13,6 +13,7 @@ import quizRoutes from './routes/quizzes';
 import progressRoutes from './routes/progress';
 import userRoutes from './routes/users';
 import badgeRoutes from './routes/badges';
+import codingRoutes from './routes/coding';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -35,6 +36,7 @@ app.use('/api', quizRoutes);
 app.use('/api/progress', progressRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/badges', badgeRoutes);
+app.use('/api/coding', codingRoutes);
 
 // Health check
 app.get('/api/health', (_req, res) => {

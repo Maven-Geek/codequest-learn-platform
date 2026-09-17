@@ -239,3 +239,18 @@ class SoundManager {
 }
 
 export const sfx = new SoundManager();
+
+export function playSound(type: 'correct' | 'wrong' | 'step' | 'coin' | 'star' | 'success' | string) {
+  if (type === 'correct' || type === 'success') {
+    sfx.success();
+  } else if (type === 'wrong') {
+    sfx.wall();
+  } else if (type === 'coin') {
+    sfx.coin();
+  } else if (type === 'star') {
+    sfx.star();
+  } else if (type === 'step') {
+    sfx.step();
+  }
+}
+

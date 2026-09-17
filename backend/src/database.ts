@@ -5,6 +5,7 @@
 import pg from 'pg';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
+import { ensureCodingCurriculumExists } from './codingSeed';
 
 const { Pool } = pg;
 
@@ -145,6 +146,9 @@ export async function initializeDatabase(): Promise<void> {
 
   // Ensure curriculum & quizzes across all 13 lessons are upgraded with Python syntax
   await updateCurriculumWithPython();
+
+  // Ensure multi-language coding curriculum (Levels 5-7), badges, challenges & snippets exist
+  await ensureCodingCurriculumExists(query);
 }
 
 // ---- Level 4 Migration & Setup ----

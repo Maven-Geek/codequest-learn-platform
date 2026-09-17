@@ -8,6 +8,7 @@ import { api } from '../api/client';
 import DragDropActivity from '../components/DragDropActivity';
 import CodingPuzzle from '../components/CodingPuzzle';
 import QuizPlayer from '../components/QuizPlayer';
+import CodingActivity from '../components/CodingActivity';
 
 export default function LessonPage() {
   const { id } = useParams<{ id: string }>();
@@ -474,12 +475,19 @@ export default function LessonPage() {
 
         const rawCode = codeLines.join('\n');
         const highlighted = highlightPythonHtml(rawCode);
+        const langLower = (lang || 'code').toLowerCase();
+        const langIcon = langLower === 'python' || langLower === 'py' ? '🐍' :
+                         langLower === 'javascript' || langLower === 'js' ? '⚡' :
+                         langLower === 'java' ? '☕' : '💻';
+        const langDisplayName = langLower === 'python' || langLower === 'py' ? 'Python' :
+                                langLower === 'javascript' || langLower === 'js' ? 'JavaScript' :
+                                langLower === 'java' ? 'Java' : (lang || 'Code').toUpperCase();
 
         result.push(`
-          <div class="code-block-container">
+          <div class="code-block-container theme-${langLower}">
             <div class="code-block-header">
-              <span class="code-lang-tag">🐍 ${lang === 'python' ? 'Python' : lang.toUpperCase()}</span>
-              <span class="code-header-tip">Python Code Example</span>
+              <span class="code-lang-tag">${langIcon} ${langDisplayName}</span>
+              <span class="code-header-tip">${langDisplayName} Code Example</span>
             </div>
             <pre class="code-snippet-box"><code>${highlighted}</code></pre>
           </div>
@@ -705,6 +713,13 @@ export default function LessonPage() {
                   ...lesson.activity_data,
                   correctSequence: [], // Free play - any sequence works
                 }}
+                onComplete={handleActivityComplete}
+                onGoToQuiz={() => setTab('quiz')}
+              />
+            )}
+            {lesson.activity_type === 'coding' && (
+              <CodingActivity
+                activity={lesson.activity_data}
                 onComplete={handleActivityComplete}
                 onGoToQuiz={() => setTab('quiz')}
               />

@@ -35,6 +35,8 @@ export default function Sidebar() {
       case 'learner':
         return [
           { to: '/learn', icon: '🗺️', label: 'Dashboard' },
+          { to: '/playground', icon: '🧪', label: 'Playground' },
+          { to: '/challenges', icon: '⚔️', label: 'Challenges' },
           { to: '/profile', icon: '👤', label: 'Profile' },
         ];
       case 'parent':

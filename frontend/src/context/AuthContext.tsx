@@ -4,6 +4,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { api } from '../api/client';
+import { CodingLanguage } from '../../../shared/src/types';
 
 interface User {
   id: number;
@@ -13,6 +14,9 @@ interface User {
   display_name: string;
   avatar_url: string;
   enrollment_key?: string;
+  preferred_coding_language?: CodingLanguage;
+  coding_streak_count?: number;
+  last_coding_streak_date?: string | null;
 }
 
 interface AuthContextType {
@@ -21,6 +25,8 @@ interface AuthContextType {
   login: (username: string, password: string) => Promise<void>;
   register: (data: any) => Promise<void>;
   logout: () => void;
+  updatePreferredLanguage: (lang: CodingLanguage) => Promise<void>;
+  refreshUser: () => Promise<void>;
   isAuthenticated: boolean;
 }
 
@@ -29,6 +35,15 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const refreshUser = async () => {
+    try {
+      const res = await api.getMe();
+      setUser(res.data);
+    } catch {
+      // ignore
+    }
+  };
 
   useEffect(() => {
     const token = localStorage.getItem('codequest_token');
@@ -61,8 +76,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   };
 
+  const updatePreferredLanguage = async (lang: CodingLanguage) => {
+    try {
+      await api.updateLanguagePreference(lang);
+      setUser((prev) => (prev ? { ...prev, preferred_coding_language: lang } : null));
+    } catch (err) {
+      console.error('Failed to update language preference:', err);
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, isAuthenticated: !!user }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        loading,
+        login,
+        register,
+        logout,
+        updatePreferredLanguage,
+        refreshUser,
+        isAuthenticated: !!user,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

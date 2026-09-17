@@ -13,22 +13,27 @@ router.get('/levels', authMiddleware, async (req: Request, res: Response) => {
   try {
     const userId = req.user!.userId;
 
+    // Get user's preferred coding language if not passed via query
+    const userRes = await query('SELECT preferred_coding_language FROM users WHERE id = $1', [userId]);
+    const lang = (req.query.language as string) || userRes.rows[0]?.preferred_coding_language || 'python';
+
     const result = await query(`
       SELECT l.*,
-        (SELECT COUNT(*) FROM lessons WHERE level_id = l.id AND is_published = true) as lesson_count,
+        (SELECT COUNT(*) FROM lessons WHERE level_id = l.id AND is_published = true AND (coding_language IS NULL OR coding_language = $2)) as lesson_count,
         (SELECT COUNT(*) FROM user_progress up
          JOIN lessons les ON up.lesson_id = les.id
-         WHERE les.level_id = l.id AND up.user_id = $1 AND up.completed = true) as completed_count
+         WHERE les.level_id = l.id AND up.user_id = $1 AND up.completed = true AND (les.coding_language IS NULL OR les.coding_language = $2)) as completed_count
       FROM levels l
       ORDER BY l.order_index
-    `, [userId]);
+    `, [userId, lang]);
 
     // Determine which levels are unlocked
     const levels = result.rows;
     const levelsWithAccess = levels.map((level: any, index: number) => {
       let is_unlocked = false;
-      if (index === 0) {
-        is_unlocked = true; // First level always unlocked
+      // Level 1 and coding levels (5+) are unlocked without prerequisite!
+      if (index === 0 || level.order_index === 1 || level.order_index >= 5) {
+        is_unlocked = true;
       } else {
         const prevLevel = levels[index - 1] as any;
         is_unlocked = parseInt(prevLevel.completed_count) >= parseInt(prevLevel.lesson_count) && parseInt(prevLevel.lesson_count) > 0;
@@ -36,7 +41,7 @@ router.get('/levels', authMiddleware, async (req: Request, res: Response) => {
       return { ...level, is_unlocked };
     });
 
-    res.json({ success: true, data: levelsWithAccess });
+    res.json({ success: true, data: levelsWithAccess, current_language: lang });
   } catch (error: any) {
     console.error('Get levels error:', error);
     res.status(500).json({ success: false, error: 'Failed to fetch levels' });
@@ -45,6 +50,21 @@ router.get('/levels', authMiddleware, async (req: Request, res: Response) => {
 
 function normalizeLessonActivityData(lesson: any) {
   let data = typeof lesson.activity_data === 'string' ? JSON.parse(lesson.activity_data || '{}') : (lesson.activity_data || {});
+  
+  // If this is a coding activity, ensure coding properties are well-formed
+  if (lesson.activity_type === 'coding') {
+    return {
+      ...data,
+      language: lesson.coding_language || data.language || 'python',
+      starterCode: data.starterCode || '',
+      solution: data.solution || '',
+      instructions: data.instructions || '',
+      hints: data.hints || [],
+      validationPatterns: data.validationPatterns || [],
+      expectedOutput: data.expectedOutput || '',
+      concept: data.concept || 'coding'
+    };
+  }
   if (lesson.id === 6 || lesson.title === 'Making Decisions') {
     if (!data.availableBlocks || data.availableBlocks.length < 7) {
       data = {
@@ -354,6 +374,9 @@ router.get('/levels/:id/lessons', authMiddleware, async (req: Request, res: Resp
     const levelId = req.params.id;
     const userId = req.user!.userId;
 
+    const userRes = await query('SELECT preferred_coding_language FROM users WHERE id = $1', [userId]);
+    const lang = (req.query.language as string) || userRes.rows[0]?.preferred_coding_language || 'python';
+
     const result = await query(`
       SELECT les.*,
         up.completed as is_completed,
@@ -362,9 +385,9 @@ router.get('/levels/:id/lessons', authMiddleware, async (req: Request, res: Resp
         up.points_earned
       FROM lessons les
       LEFT JOIN user_progress up ON up.lesson_id = les.id AND up.user_id = $1
-      WHERE les.level_id = $2 AND les.is_published = true
+      WHERE les.level_id = $2 AND les.is_published = true AND (les.coding_language IS NULL OR les.coding_language = $3)
       ORDER BY les.order_index
-    `, [userId, levelId]);
+    `, [userId, levelId, lang]);
 
     // Parse activity_data JSON
     const parsed = result.rows.map((l: any) => {

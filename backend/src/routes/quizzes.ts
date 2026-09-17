@@ -310,6 +310,51 @@ async function checkAndAwardBadges(userId: number, lessonId: number, quizScore: 
     if (badge.rows[0] && await awardBadge(badge.rows[0].id)) badges.push(badge.rows[0]);
   }
 
+  // Coding Language Track Badges (Recommendation #7, #9, #10)
+  const lessonRes = await query('SELECT level_id, title, coding_language FROM lessons WHERE id = $1', [lessonId]);
+  const currentLesson = lessonRes.rows[0];
+
+  if (currentLesson?.coding_language) {
+    const lang = currentLesson.coding_language;
+
+    const checkLangLevel = async (levelOrder: number) => {
+      const levelRow = await query('SELECT id FROM levels WHERE order_index = $1', [levelOrder]);
+      if (levelRow.rows.length === 0) return;
+      const lvlId = levelRow.rows[0].id;
+
+      const totalLangLessons = await query(
+        'SELECT COUNT(*) as count FROM lessons WHERE level_id = $1 AND coding_language = $2 AND is_published = true',
+        [lvlId, lang]
+      );
+      const completedLangLessons = await query(
+        'SELECT COUNT(*) as count FROM user_progress up JOIN lessons l ON up.lesson_id = l.id WHERE l.level_id = $1 AND l.coding_language = $2 AND up.user_id = $3 AND up.completed = true',
+        [lvlId, lang, userId]
+      );
+
+      if (parseInt(completedLangLessons.rows[0].count) >= parseInt(totalLangLessons.rows[0].count) && parseInt(totalLangLessons.rows[0].count) > 0) {
+        const criteria = `complete_${lang}_level_${levelOrder}`;
+        const badge = await query('SELECT * FROM badges WHERE criteria = $1', [criteria]);
+        if (badge.rows[0] && await awardBadge(badge.rows[0].id)) badges.push(badge.rows[0]);
+      }
+    };
+
+    await checkLangLevel(5);
+    await checkLangLevel(6);
+    await checkLangLevel(7);
+
+    // Bug Buster (Recommendation #9)
+    if (currentLesson.title?.includes('Bug Detective')) {
+      const badge = await query("SELECT * FROM badges WHERE criteria = 'debug_lesson_completed'");
+      if (badge.rows[0] && await awardBadge(badge.rows[0].id)) badges.push(badge.rows[0]);
+    }
+
+    // Project Architect (Recommendation #10)
+    if (currentLesson.title?.includes('Mini-Project')) {
+      const badge = await query("SELECT * FROM badges WHERE criteria = 'mini_project_completed'");
+      if (badge.rows[0] && await awardBadge(badge.rows[0].id)) badges.push(badge.rows[0]);
+    }
+  }
+
   // All lessons complete
   const totalLessons = await query('SELECT COUNT(*) as count FROM lessons WHERE is_published = true');
   if (parseInt(completedCount.rows[0].count) >= parseInt(totalLessons.rows[0].count) && parseInt(totalLessons.rows[0].count) > 0) {

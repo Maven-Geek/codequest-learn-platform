@@ -17,6 +17,8 @@ import TeacherDashboard from './pages/TeacherDashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import LessonManager from './pages/LessonManager';
 import UserManager from './pages/UserManager';
+import PlaygroundPage from './pages/PlaygroundPage';
+import ChallengesPage from './pages/ChallengesPage';
 import AmbientBackground from './components/AmbientBackground';
 
 function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode; allowedRoles?: string[] }) {
@@ -65,9 +67,12 @@ export default function App() {
         <div className="main-content" style={{ position: 'relative', zIndex: 1 }}>
           <Navbar />
           <Routes>
-            {/* Learner only — non-learners cannot take tasks */}
-            <Route path="/learn" element={<ProtectedRoute allowedRoles={['learner']}><LevelMapPage /></ProtectedRoute>} />
-            <Route path="/lesson/:id" element={<ProtectedRoute allowedRoles={['learner']}><LessonPage /></ProtectedRoute>} />
+            {/* Learner & Coding Routes */}
+            <Route path="/learn" element={<ProtectedRoute allowedRoles={['learner', 'admin']}><LevelMapPage /></ProtectedRoute>} />
+            <Route path="/lesson/:id" element={<ProtectedRoute allowedRoles={['learner', 'admin']}><LessonPage /></ProtectedRoute>} />
+            <Route path="/playground" element={<ProtectedRoute allowedRoles={['learner', 'admin']}><PlaygroundPage /></ProtectedRoute>} />
+            <Route path="/challenges" element={<ProtectedRoute allowedRoles={['learner', 'admin']}><ChallengesPage /></ProtectedRoute>} />
+            <Route path="/coding" element={<Navigate to="/learn" replace />} />
 
             {/* Shared */}
             <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />

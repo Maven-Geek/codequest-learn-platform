@@ -5,6 +5,7 @@
 // ---- User & Roles ----
 
 export type UserRole = 'learner' | 'parent' | 'teacher' | 'admin';
+export type CodingLanguage = 'python' | 'javascript' | 'java';
 
 export interface User {
   id: number;
@@ -16,6 +17,9 @@ export interface User {
   enrollment_key?: string;
   parent_id: number | null;
   teacher_id: number | null;
+  preferred_coding_language?: CodingLanguage;
+  coding_streak_count?: number;
+  last_coding_streak_date?: string | null;
   created_at: string;
 }
 
@@ -38,6 +42,7 @@ export interface RegisterRequest {
   enrollment_key?: string;
   parent_id?: number;
   teacher_id?: number;
+  preferred_coding_language?: CodingLanguage;
 }
 
 export interface AuthResponse {
@@ -58,7 +63,7 @@ export interface Level {
   is_unlocked?: boolean;
 }
 
-export type ActivityType = 'drag-drop' | 'puzzle' | 'pattern' | 'game';
+export type ActivityType = 'drag-drop' | 'puzzle' | 'pattern' | 'game' | 'coding';
 
 export interface DragDropBlock {
   id: string;
@@ -105,7 +110,29 @@ export interface GameActivityData {
   objectives: string[];
 }
 
-export type ActivityData = DragDropActivityData | PuzzleActivityData | GameActivityData;
+export interface CodingTestCase {
+  input?: string;
+  expectedOutput?: string;
+  description?: string;
+}
+
+export interface CodingActivityData {
+  language: CodingLanguage;
+  instructions: string;
+  starterCode: string;
+  solution?: string;
+  expectedOutput?: string;
+  validationPatterns?: string[];
+  testCases?: CodingTestCase[];
+  hints: string[];
+  concept?: string;
+  isDebuggingLesson?: boolean;
+  isMiniProject?: boolean;
+  isPseudoCodeLesson?: boolean;
+  isDocumentationLesson?: boolean;
+}
+
+export type ActivityData = DragDropActivityData | PuzzleActivityData | GameActivityData | CodingActivityData;
 
 export interface Lesson {
   id: number;
@@ -116,6 +143,7 @@ export interface Lesson {
   example: string;
   activity_type: ActivityType;
   activity_data: ActivityData;
+  coding_language?: CodingLanguage;
   is_published: boolean;
 }
 
@@ -200,6 +228,67 @@ export interface ChildReport {
   progress: UserProgress[];
   badges: EarnedBadge[];
   areas_needing_improvement: string[];
+}
+
+// ---- Coding Additions (Playground, Snippets, Challenges, Golf) ----
+
+export interface CodingLanguageInfo {
+  id: CodingLanguage;
+  name: string;
+  icon: string;
+  badge: string;
+  tagline: string;
+  description: string;
+  difficulty: 'Beginner' | 'Intermediate' | 'Advanced';
+  defaultTemplate: string;
+}
+
+export interface CodeSnippet {
+  id: number;
+  user_id: number;
+  title: string;
+  language: CodingLanguage;
+  code: string;
+  description?: string;
+  is_spell_book?: boolean;
+  created_at: string;
+}
+
+export interface CodingChallenge {
+  id: number;
+  title: string;
+  language: CodingLanguage;
+  difficulty: 'Easy' | 'Medium' | 'Hard';
+  prompt: string;
+  starter_code: string;
+  solution_pattern?: string;
+  expected_output?: string;
+  xp_reward: number;
+  time_limit_seconds?: number;
+  is_daily?: boolean;
+  created_at?: string;
+}
+
+export interface ChallengeSubmission {
+  id: number;
+  challenge_id: number;
+  user_id: number;
+  user_display_name?: string;
+  avatar_url?: string;
+  code: string;
+  code_length: number;
+  execution_time_ms?: number;
+  completed: boolean;
+  created_at: string;
+}
+
+export interface CodeComparisonSample {
+  title: string;
+  concept: string;
+  description: string;
+  python: string;
+  javascript: string;
+  java: string;
 }
 
 // ---- API Response Wrappers ----

@@ -59,7 +59,7 @@ router.get('/children', authMiddleware, async (req: Request, res: Response) => {
 router.get('/me', authMiddleware, async (req: Request, res: Response) => {
   try {
     const result = await query(
-      'SELECT id, username, email, role, display_name, avatar_url, enrollment_key, parent_id, teacher_id, created_at FROM users WHERE id = $1',
+      'SELECT id, username, email, role, display_name, avatar_url, enrollment_key, parent_id, teacher_id, preferred_coding_language, coding_streak_count, last_coding_streak_date, created_at FROM users WHERE id = $1',
       [req.user!.userId]
     );
 

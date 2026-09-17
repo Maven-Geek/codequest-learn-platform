@@ -38,8 +38,9 @@ export const api = {
     request<any>('/auth/register', { method: 'POST', body: JSON.stringify(data) }),
 
   // Levels & Lessons
-  getLevels: () => request<any>('/levels'),
-  getLevelLessons: (levelId: number) => request<any>(`/levels/${levelId}/lessons`),
+  getLevels: (language?: string) => request<any>(language ? `/levels?language=${language}` : '/levels'),
+  getLevelLessons: (levelId: number, language?: string) =>
+    request<any>(language ? `/levels/${levelId}/lessons?language=${language}` : `/levels/${levelId}/lessons`),
   getLesson: (id: number) => request<any>(`/lessons/${id}`),
   getAllLessons: () => request<any>('/lessons-all'),
   createLesson: (data: any) => request<any>('/lessons', { method: 'POST', body: JSON.stringify(data) }),
@@ -84,4 +85,26 @@ export const api = {
   // Badges
   getBadges: () => request<any>('/badges'),
   getEarnedBadges: () => request<any>('/badges/earned'),
+
+  // Coding Lab (Recommendations 1-12)
+  getCodingLanguages: () => request<any>('/coding/languages'),
+  getLanguagePreference: () => request<any>('/coding/preference'),
+  updateLanguagePreference: (language: string) =>
+    request<any>('/coding/preference', { method: 'PUT', body: JSON.stringify({ language }) }),
+  getComparisonSamples: () => request<any>('/coding/comparison'),
+  validateCode: (code: string, patterns?: string[], expectedOutput?: string) =>
+    request<any>('/coding/validate', { method: 'POST', body: JSON.stringify({ code, patterns, expectedOutput }) }),
+  getCodingSnippets: (language?: string) =>
+    request<any>(language ? `/coding/snippets?language=${language}` : '/coding/snippets'),
+  saveCodingSnippet: (data: { title: string; language: string; code: string; description?: string }) =>
+    request<any>('/coding/snippets', { method: 'POST', body: JSON.stringify(data) }),
+  deleteCodingSnippet: (id: number) =>
+    request<any>(`/coding/snippets/${id}`, { method: 'DELETE' }),
+  getCodingChallenges: (language?: string) =>
+    request<any>(language ? `/coding/challenges?language=${language}` : '/coding/challenges'),
+  getChallengeLeaderboard: (challengeId: number) =>
+    request<any>(`/coding/challenges/${challengeId}/leaderboard`),
+  submitChallenge: (challengeId: number, data: { code: string; execution_time_ms?: number }) =>
+    request<any>(`/coding/challenges/${challengeId}/submit`, { method: 'POST', body: JSON.stringify(data) }),
+  updateStreak: () => request<any>('/coding/streak', { method: 'POST' }),
 };
